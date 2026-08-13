@@ -6,7 +6,7 @@ The Yesterdays API serves thumbnails in .webp format. The plugin bundles the pur
 
 ## Install the plugin
  - Ensure you are running a recent version of JOSM.
- - Download `yesterdays.jar` from the [releases page](https://github.com/watmildon/ydy-josm/releases).
+ - Download `yesterdays.jar` from the [releases page](https://github.com/mhpob/ydy-josm/releases).
  - Place the file directly into your local JOSM plugins directory based on your operating system:
    - Linux: `~/.local/share/JOSM/plugins/`
    - macOS: `~/Library/JOSM/plugins/`
