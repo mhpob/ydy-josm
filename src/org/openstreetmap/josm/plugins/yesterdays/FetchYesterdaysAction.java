@@ -57,6 +57,7 @@ public class FetchYesterdaysAction extends JosmAction {
                     Pattern titlePattern = Pattern.compile("\"image_title\"\\s*:\\s*\"([^\"]*)\"");
                     Pattern idPattern = Pattern.compile("\"image_id\"\\s*:\\s*([0-9]+)");
                     Pattern thumbPattern = Pattern.compile("\"image_thumbnail\"\\s*:\\s*\"([^\"]*)\"");
+                    Pattern dirPattern = Pattern.compile("\"direction\"\\s*:\\s*([0-9.]+)");
 
                     for (String feat : features) {
                         Matcher mCoord = coordPattern.matcher(feat);
@@ -82,7 +83,13 @@ public class FetchYesterdaysAction extends JosmAction {
                                 thumbUrl = mThumb.group(1);
                             }
 
-                            fetchedImages.add(new YesterdaysImage(new LatLon(lat, lon), title, thumbUrl, uuid));
+                            int direction = 0;
+                            Matcher mDir = dirPattern.matcher(feat);
+                            if (mDir.find()) {
+                                direction = (int) Double.parseDouble(mDir.group(1));
+                            }
+
+                            fetchedImages.add(new YesterdaysImage(new LatLon(lat, lon), title, thumbUrl, uuid, direction));
                         }
                     }
 

@@ -1,0 +1,4 @@
+# Build artifacts and downloaded dependencies
+build/
+dist/
+lib/*.jar

@@ -10,10 +10,14 @@
     <property name="lib.dir" value="lib" />
     <property name="josm.jar" value="${lib.dir}/josm-tested.jar" />
     <property name="josm.url" value="https://josm.openstreetmap.de/josm-tested.jar" />
-    
+
     <property name="src.dir" value="src" />
     <property name="build.dir" value="build" />
     <property name="dist.dir" value="dist" />
+
+    <!-- TwelveMonkeys ImageIO (pure-Java webp decoder), bundled into the plugin jar -->
+    <property name="twelvemonkeys.version" value="3.13.1" />
+    <property name="maven.repo" value="https://repo1.maven.org/maven2" />
 
     <!-- Automatically download JOSM if it isn't in the lib folder -->
     <target name="fetch-josm">
@@ -21,7 +25,23 @@
         <get src="${josm.url}" dest="${josm.jar}" usetimestamp="true" />
     </target>
 
-    <target name="init" depends="fetch-josm">
+    <target name="fetch-deps">
+        <mkdir dir="${lib.dir}" />
+        <get src="${maven.repo}/com/twelvemonkeys/imageio/imageio-webp/${twelvemonkeys.version}/imageio-webp-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/imageio-webp-${twelvemonkeys.version}.jar" usetimestamp="true" />
+        <get src="${maven.repo}/com/twelvemonkeys/imageio/imageio-core/${twelvemonkeys.version}/imageio-core-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/imageio-core-${twelvemonkeys.version}.jar" usetimestamp="true" />
+        <get src="${maven.repo}/com/twelvemonkeys/imageio/imageio-metadata/${twelvemonkeys.version}/imageio-metadata-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/imageio-metadata-${twelvemonkeys.version}.jar" usetimestamp="true" />
+        <get src="${maven.repo}/com/twelvemonkeys/common/common-image/${twelvemonkeys.version}/common-image-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/common-image-${twelvemonkeys.version}.jar" usetimestamp="true" />
+        <get src="${maven.repo}/com/twelvemonkeys/common/common-io/${twelvemonkeys.version}/common-io-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/common-io-${twelvemonkeys.version}.jar" usetimestamp="true" />
+        <get src="${maven.repo}/com/twelvemonkeys/common/common-lang/${twelvemonkeys.version}/common-lang-${twelvemonkeys.version}.jar"
+             dest="${lib.dir}/common-lang-${twelvemonkeys.version}.jar" usetimestamp="true" />
+    </target>
+
+    <target name="init" depends="fetch-josm,fetch-deps">
         <mkdir dir="${build.dir}" />
         <mkdir dir="${dist.dir}" />
     </target>
@@ -30,6 +50,10 @@
         <javac srcdir="${src.dir}" destdir="${build.dir}" includeantruntime="false" release="11">
             <classpath>
                 <pathelement location="${josm.jar}" />
+                <fileset dir="${lib.dir}">
+                    <include name="imageio-*.jar" />
+                    <include name="common-*.jar" />
+                </fileset>
             </classpath>
         </javac>
     </target>
@@ -37,13 +61,20 @@
     <!-- THIS IS THE TARGET ANT IS LOOKING FOR -->
     <target name="dist" depends="compile">
         <jar destfile="${dist.dir}/${plugin.name}.jar" basedir="${build.dir}">
+            <!-- Bundle the TwelveMonkeys webp decoder so no external plugin is needed -->
+            <zipfileset src="${lib.dir}/imageio-webp-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset src="${lib.dir}/imageio-core-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset src="${lib.dir}/imageio-metadata-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset src="${lib.dir}/common-image-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset src="${lib.dir}/common-io-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset src="${lib.dir}/common-lang-${twelvemonkeys.version}.jar" excludes="META-INF/MANIFEST.MF,META-INF/maven/**" />
+            <zipfileset file="${lib.dir}/LICENSE-twelvemonkeys.txt" prefix="META-INF" />
             <manifest>
                 <attribute name="Plugin-Class" value="${plugin.class}" />
                 <attribute name="Plugin-Description" value="${plugin.description}" />
                 <attribute name="Plugin-Version" value="${plugin.version}" />
                 <attribute name="Plugin-Mainversion" value="19000" />
                 <attribute name="Plugin-Author" value="${plugin.author}" />
-                <attribute name="Plugin-Requires" value="ImageIO" />
             </manifest>
         </jar>
     </target>

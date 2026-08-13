@@ -2,23 +2,17 @@
 
 ydy-josm is a plugin for JOSM (Java OpenStreetMap Editor) that displays historical photographs from the Yesterdays REST API.
 
-## Prerequisites
- - JOSM: Ensure you are running a recent version of JOSM.
- - ImageIO Plugin: Because the Yesterdays API serves thumbnails in .webp format, JOSM requires the official ImageIO plugin display them.
+The Yesterdays API serves thumbnails in .webp format. The plugin bundles the pure-Java [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) webp decoder (BSD 3-Clause license), so no additional plugins or configuration are required.
 
-### Enabling the ImageIO Plugin
-
- - Open JOSM and navigate to Edit -> Preferences (or press F12).
- - Click on the Plugins tab and click Download List.
- - Search for ImageIO, check the box to enable it, and click OK.
- - Restart JOSM.
- - Go back to Edit -> Preferences and select the Imagery tab.
- - Click the ImageIO tab and ensure webp is checked.
-
-### Instal the plugin
- - Download `yesterdays.jar` from the [releases page](https://github.com/mhpob/ydy-josm/releases).
+## Install the plugin
+ - Ensure you are running a recent version of JOSM.
+ - Download `yesterdays.jar` from the [releases page](https://github.com/watmildon/ydy-josm/releases).
  - Place the file directly into your local JOSM plugins directory based on your operating system:
    - Linux: `~/.local/share/JOSM/plugins/`
    - macOS: `~/Library/JOSM/plugins/`
    - Windows: `%APPDATA%\JOSM\plugins\`
  - Restart JOSM.
+
+## Building from source
+
+Run `ant` in the repository root. The build automatically downloads `josm-tested.jar` and the TwelveMonkeys jars into `lib/` and produces `dist/yesterdays.jar`.
