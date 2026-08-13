@@ -13,4 +13,12 @@ ydy-josm is a plugin for JOSM (Java OpenStreetMap Editor) that displays historic
  - Search for ImageIO, check the box to enable it, and click OK.
  - Restart JOSM.
  - Go back to Edit -> Preferences and select the Imagery tab.
- - Click the ImageIO tab and ensure webp is checked. Click OK and restart JOSM.
+ - Click the ImageIO tab and ensure webp is checked.
+
+### Instal the plugin
+ - Download `yesterdays.jar` from the [releases page](https://github.com/mhpob/ydy-josm/releases).
+ - Place the file directly into your local JOSM plugins directory based on your operating system:
+   - Linux: `~/.local/share/JOSM/plugins/`
+   - macOS: `~/Library/JOSM/plugins/`
+   - Windows: `%APPDATA%\JOSM\plugins\`
+ - Restart JOSM.
