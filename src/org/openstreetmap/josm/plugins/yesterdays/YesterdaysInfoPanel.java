@@ -1,12 +1,15 @@
 package org.openstreetmap.josm.plugins.yesterdays;
 
 import org.openstreetmap.josm.gui.dialogs.ToggleDialog;
+import org.openstreetmap.josm.tools.OpenBrowser;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.net.URL;
 
@@ -16,6 +19,7 @@ public class YesterdaysInfoPanel extends ToggleDialog {
     private final JLabel idLabel;
     private final JLabel imageLabel;
     private BufferedImage currentImage;
+    private String currentWebUrl;
 
     public YesterdaysInfoPanel() {
         super("Yesterdays Photos", "geoimage", "Display historical photo details", null, 200);
@@ -26,13 +30,22 @@ public class YesterdaysInfoPanel extends ToggleDialog {
 
         titleLabel = new JLabel("Click a photo point on the map");
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 13f));
+        
         idLabel = new JLabel("");
+        idLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        idLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (currentWebUrl != null && !currentWebUrl.isEmpty()) {
+                    OpenBrowser.displayUrl(currentWebUrl);
+                }
+            }
+        });
         
         imageLabel = new JLabel("No image selected", JLabel.CENTER);
         imageLabel.setPreferredSize(new Dimension(200, 180));
         imageLabel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
-        // Automatically re-scale and fit the image when the sidebar panel is resized
         imageLabel.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
@@ -62,7 +75,10 @@ public class YesterdaysInfoPanel extends ToggleDialog {
 
         try {
             titleLabel.setText(img.getTitle() != null ? img.getTitle() : "Untitled");
-            idLabel.setText("ID: " + img.getUuid());
+            
+            String imageId = img.getUuid();
+            currentWebUrl = "https://yesterdays.maprva.org/" + imageId;
+            idLabel.setText("<html>ID: <a href=\"\">" + imageId + "</a></html>");
 
             String imageUrl = img.getThumbnailUrl();
 
@@ -72,7 +88,6 @@ public class YesterdaysInfoPanel extends ToggleDialog {
                 currentImage = null;
                 
                 final String finalUrl = imageUrl;
-                // Fetch image asynchronously so it doesn't freeze the JOSM UI
                 new Thread(() -> {
                     try {
                         URL url = new URL(finalUrl);
@@ -108,12 +123,11 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         int panelWidth = imageLabel.getWidth();
         int panelHeight = imageLabel.getHeight();
 
-        if (panelWidth <= 10 || panelHeight <= 10) return; // Not yet rendered
+        if (panelWidth <= 10 || panelHeight <= 10) return;
 
         int imgWidth = currentImage.getWidth();
         int imgHeight = currentImage.getHeight();
 
-        // Calculate scaling factor to fit the panel while maintaining aspect ratio
         double scaleX = (double) panelWidth / imgWidth;
         double scaleY = (double) panelHeight / imgHeight;
         double scale = Math.min(scaleX, scaleY);

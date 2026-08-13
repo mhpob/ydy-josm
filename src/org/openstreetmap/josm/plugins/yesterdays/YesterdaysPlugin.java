@@ -182,34 +182,46 @@ public class YesterdaysPlugin extends Plugin {
             Matcher matcher = Pattern.compile("\\{\\s*\"id\":\\s*(\\d+),.*?\"geometry\":\\s*\\{.*?\"coordinates\":\\s*\\[([\\d\\.\\-]+),\\s*([\\d\\.\\-]+)\\].*?\"properties\":\\s*\\{(.*?)\\}\\s*\\}", Pattern.DOTALL).matcher(json);
 
             while (matcher.find()) {
-                String id = matcher.group(1);
+                String featureId = matcher.group(1);
                 double lon = Double.parseDouble(matcher.group(2));
                 double lat = Double.parseDouble(matcher.group(3));
                 String propertiesBlock = matcher.group(4);
 
                 LatLon latLon = new LatLon(lat, lon);
 
+                // Extract the true image_id from the properties block (with fallback to featureId)
+                String imageId = featureId;
+                Matcher imgIdMatcher = Pattern.compile("\"image_id\":\\s*\"?([^\",}]+)\"?").matcher(propertiesBlock);
+                if (imgIdMatcher.find()) {
+                    imageId = imgIdMatcher.group(1);
+                }
+
+                // Extract title
                 String title = "Untitled";
                 Matcher titleMatcher = Pattern.compile("\"image_title\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
                 if (titleMatcher.find()) {
                     title = titleMatcher.group(1);
                 }
 
+                // Extract thumbnail URL
                 String thumbnailUrl = "";
                 Matcher thumbMatcher = Pattern.compile("\"image_thumbnail\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
                 if (thumbMatcher.find()) {
                     thumbnailUrl = thumbMatcher.group(1);
                 }
 
+                // Extract direction
                 int direction = 0;
                 Matcher dirMatcher = Pattern.compile("\"direction\":\\s*([\\d\\.]+)").matcher(propertiesBlock);
                 if (dirMatcher.find()) {
                     direction = (int) Double.parseDouble(dirMatcher.group(1));
                 }
                 
-                YesterdaysImage img = new YesterdaysImage(latLon, title, thumbnailUrl, id, direction);
+                YesterdaysImage img = new YesterdaysImage(latLon, title, thumbnailUrl, imageId, direction);
                 imageList.add(img);
             }
+
+            System.out.println("Successfully parsed " + imageList.size() + " image features with correct image_ids.");
         } catch (Exception e) {
             e.printStackTrace();
         }
