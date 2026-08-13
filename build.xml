@@ -1,0 +1,55 @@
+<project name="yesterdays" default="dist" basedir=".">
+    <!-- Define plugin properties -->
+    <property name="plugin.name" value="yesterdays" />
+    <property name="plugin.class" value="org.openstreetmap.josm.plugins.yesterdays.YesterdaysPlugin" />
+    <property name="plugin.description" value="Displays historical photos from the Yesterdays API." />
+    <property name="plugin.version" value="1.0.0" />
+    <property name="plugin.author" value="Your Name" />
+    
+    <!-- Paths -->
+    <property name="lib.dir" value="lib" />
+    <property name="josm.jar" value="${lib.dir}/josm-tested.jar" />
+    <property name="josm.url" value="https://josm.openstreetmap.de/josm-tested.jar" />
+    
+    <property name="src.dir" value="src" />
+    <property name="build.dir" value="build" />
+    <property name="dist.dir" value="dist" />
+
+    <!-- Automatically download JOSM if it isn't in the lib folder -->
+    <target name="fetch-josm">
+        <mkdir dir="${lib.dir}" />
+        <get src="${josm.url}" dest="${josm.jar}" usetimestamp="true" />
+    </target>
+
+    <target name="init" depends="fetch-josm">
+        <mkdir dir="${build.dir}" />
+        <mkdir dir="${dist.dir}" />
+    </target>
+
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}" destdir="${build.dir}" includeantruntime="false" release="11">
+            <classpath>
+                <pathelement location="${josm.jar}" />
+            </classpath>
+        </javac>
+    </target>
+
+    <!-- THIS IS THE TARGET ANT IS LOOKING FOR -->
+    <target name="dist" depends="compile">
+        <jar destfile="${dist.dir}/${plugin.name}.jar" basedir="${build.dir}">
+            <manifest>
+                <attribute name="Plugin-Class" value="${plugin.class}" />
+                <attribute name="Plugin-Description" value="${plugin.description}" />
+                <attribute name="Plugin-Version" value="${plugin.version}" />
+                <attribute name="Plugin-Mainversion" value="19000" />
+                <attribute name="Plugin-Author" value="${plugin.author}" />
+                <attribute name="Plugin-Requires" value="ImageIO" />
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="clean">
+        <delete dir="${build.dir}" />
+        <delete dir="${dist.dir}" />
+    </target>
+</project>
