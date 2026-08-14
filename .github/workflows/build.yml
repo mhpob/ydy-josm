@@ -66,11 +66,11 @@ jobs:
           ant dist
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && steps.version-check.outputs.changed == 'true'
+        if: steps.version-check.outputs.changed == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version-check.outputs.version }}
-          name: JOSM Plugin v${{ steps.version-check.outputs.version }}
+          name: v${{ steps.version-check.outputs.version }}
           files: |
             *.jar
             build/*.jar
