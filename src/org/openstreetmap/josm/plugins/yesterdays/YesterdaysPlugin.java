@@ -9,6 +9,10 @@ import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.plugins.Plugin;
 import org.openstreetmap.josm.plugins.PluginInformation;
 
+import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
+
+import javax.imageio.ImageIO;
+import javax.imageio.spi.IIORegistry;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.io.BufferedReader;
@@ -25,6 +29,22 @@ public class YesterdaysPlugin extends Plugin {
     
     public YesterdaysPlugin(PluginInformation info) {
         super(info);
+        ensureWebpSupport();
+    }
+
+    /**
+     * Registers the bundled TwelveMonkeys webp reader, unless another provider
+     * (e.g. the ImageIO plugin) has already made webp readable.
+     */
+    private static void ensureWebpSupport() {
+        try {
+            if (!ImageIO.getImageReadersByMIMEType("image/webp").hasNext()) {
+                IIORegistry.getDefaultInstance().registerServiceProvider(new WebPImageReaderSpi());
+                System.out.println("Yesterdays: registered bundled webp image reader.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
