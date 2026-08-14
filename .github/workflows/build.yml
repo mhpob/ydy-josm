@@ -61,9 +61,7 @@ jobs:
 
       - name: Build JOSM Plugin with Ant
         if: steps.version-check.outputs.changed == 'true'
-        run: |
-          # Change to 'ant dist' or 'ant jar' if your build.xml requires a specific target
-          ant dist
+        run: ant dist
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.changed == 'true'
@@ -71,7 +69,5 @@ jobs:
         with:
           tag_name: v${{ steps.version-check.outputs.version }}
           name: v${{ steps.version-check.outputs.version }}
-          files: |
-            *.jar
-            build/*.jar
+          files: dist/*.jar
           generate_release_notes: true
