@@ -6,6 +6,7 @@ import org.openstreetmap.josm.gui.MainApplication;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.MapView;
+import org.openstreetmap.josm.gui.download.DownloadDialog;
 import org.openstreetmap.josm.plugins.Plugin;
 import org.openstreetmap.josm.plugins.PluginInformation;
 
@@ -14,7 +15,10 @@ import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 import javax.imageio.ImageIO;
 import javax.imageio.spi.IIORegistry;
 import javax.swing.*;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -30,12 +34,11 @@ public class YesterdaysPlugin extends Plugin {
     public YesterdaysPlugin(PluginInformation info) {
         super(info);
         ensureWebpSupport();
+        
+        // Register the custom tab into the "Download data..." pop-up dialog
+        DownloadDialog.addDownloadSource(new YesterdaysDownloadSource());
     }
 
-    /**
-     * Registers the bundled TwelveMonkeys webp reader, unless another provider
-     * (e.g. the ImageIO plugin) has already made webp readable.
-     */
     private static void ensureWebpSupport() {
         try {
             if (!ImageIO.getImageReadersByMIMEType("image/webp").hasNext()) {
@@ -50,8 +53,36 @@ public class YesterdaysPlugin extends Plugin {
     @Override
     public void mapFrameInitialized(MapFrame oldFrame, MapFrame newFrame) {
         super.mapFrameInitialized(oldFrame, newFrame);
-        if (newFrame != null) {
+        if (newFrame != null && newFrame.mapView != null) {
             newFrame.addToggleDialog(YesterdaysInfoPanel.getInstance());
+
+            // Add global mouse listener so photo markers are clickable even when YesterdaysLayer is inactive
+            newFrame.mapView.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1) {
+                        MapView mv = newFrame.mapView;
+                        Point clickPoint = e.getPoint();
+
+                        // Query all YesterdaysLayer instances currently in JOSM
+                        for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
+                            if (layer.isVisible()) {
+                                YesterdaysImage hitImage = layer.getImageAtPoint(clickPoint, mv);
+                                if (hitImage != null) {
+                                    SwingUtilities.invokeLater(() -> {
+                                        YesterdaysInfoPanel panel = YesterdaysInfoPanel.getInstance();
+                                        panel.displayImage(hitImage);
+                                        panel.setVisible(true);
+                                        panel.requestFocusInWindow();
+                                    });
+                                    mv.repaint();
+                                    break; // Stop after finding the first hit
+                                }
+                            }
+                        }
+                    }
+                }
+            });
 
             JMenu dataMenu = MainApplication.getMenu().dataMenu;
             if (dataMenu != null) {
@@ -94,7 +125,7 @@ public class YesterdaysPlugin extends Plugin {
         loadImagesForBoundsAsync(bounds);
     }
 
-    public void loadImagesForBoundsAsync(Bounds bounds) {
+    public static void loadImagesForBoundsAsync(Bounds bounds) {
         PleaseWaitRunnable task = new PleaseWaitRunnable("Loading Yesterdays Photos") {
             private List<YesterdaysImage> allImages = new ArrayList<>();
             private boolean success = false;
@@ -185,7 +216,7 @@ public class YesterdaysPlugin extends Plugin {
         MainApplication.worker.submit(task);
     }
 
-    private String extractNextUrl(String json) {
+    private static String extractNextUrl(String json) {
         Matcher m = Pattern.compile("\"next\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
         if (m.find()) {
             String next = m.group(1);
@@ -196,7 +227,7 @@ public class YesterdaysPlugin extends Plugin {
         return null;
     }
 
-    private List<YesterdaysImage> parseImagesFromJson(String json) {
+    private static List<YesterdaysImage> parseImagesFromJson(String json) {
         List<YesterdaysImage> imageList = new ArrayList<>();
         try {
             Matcher matcher = Pattern.compile("\\{\\s*\"id\":\\s*(\\d+),.*?\"geometry\":\\s*\\{.*?\"coordinates\":\\s*\\[([\\d\\.\\-]+),\\s*([\\d\\.\\-]+)\\].*?\"properties\":\\s*\\{(.*?)\\}\\s*\\}", Pattern.DOTALL).matcher(json);
@@ -209,28 +240,24 @@ public class YesterdaysPlugin extends Plugin {
 
                 LatLon latLon = new LatLon(lat, lon);
 
-                // Extract the true image_id from the properties block (with fallback to featureId)
                 String imageId = featureId;
                 Matcher imgIdMatcher = Pattern.compile("\"image_id\":\\s*\"?([^\",}]+)\"?").matcher(propertiesBlock);
                 if (imgIdMatcher.find()) {
                     imageId = imgIdMatcher.group(1);
                 }
 
-                // Extract title
                 String title = "Untitled";
                 Matcher titleMatcher = Pattern.compile("\"image_title\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
                 if (titleMatcher.find()) {
                     title = titleMatcher.group(1);
                 }
 
-                // Extract thumbnail URL
                 String thumbnailUrl = "";
                 Matcher thumbMatcher = Pattern.compile("\"image_thumbnail\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
                 if (thumbMatcher.find()) {
                     thumbnailUrl = thumbMatcher.group(1);
                 }
 
-                // Extract direction
                 int direction = 0;
                 Matcher dirMatcher = Pattern.compile("\"direction\":\\s*([\\d\\.]+)").matcher(propertiesBlock);
                 if (dirMatcher.find()) {
@@ -240,8 +267,6 @@ public class YesterdaysPlugin extends Plugin {
                 YesterdaysImage img = new YesterdaysImage(latLon, title, thumbnailUrl, imageId, direction);
                 imageList.add(img);
             }
-
-            System.out.println("Successfully parsed " + imageList.size() + " image features with correct image_ids.");
         } catch (Exception e) {
             e.printStackTrace();
         }
