@@ -3,7 +3,7 @@
     <property name="plugin.name" value="yesterdays" />
     <property name="plugin.class" value="org.openstreetmap.josm.plugins.yesterdays.YesterdaysPlugin" />
     <property name="plugin.description" value="Displays historical photos from the Yesterdays API." />
-    <property name="plugin.version" value="0.1.0.999-3" />
+    <property name="plugin.version" value="0.1.0.999-4" />
     <property name="plugin.author" value="Yesterdays Team" />
     
     <!-- Paths -->
@@ -16,7 +16,7 @@
     <property name="dist.dir" value="dist" />
 
     <!-- TwelveMonkeys ImageIO (pure-Java webp decoder), bundled into the plugin jar -->
-    <property name="twelvemonkeys.version" value="3.13.1" />
+    <property name="twelvemonkeys.version" value="3.14.0" />
     <property name="maven.repo" value="https://repo1.maven.org/maven2" />
 
     <!-- Automatically download JOSM if it isn't in the lib folder -->
