@@ -1,0 +1,67 @@
+name: Build and Release JOSM Plugin
+
+on:
+  push:
+    branches: "trunk"
+    paths: 'build.xml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check version change and extract version
+        id: version-check
+        run: |
+          # 1. Compare HEAD^ to HEAD to see if plugin.version changed
+          CHANGES=$(git diff HEAD^ HEAD -- build.xml || echo "")
+          
+          if ! echo "$CHANGES" | grep -q "plugin.version"; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Skipping: 'plugin.version' was not modified in build.xml."
+            exit 0
+          fi
+          
+          # 2. Extract the plugin.version value from build.xml using Bash (grep + sed)
+          VERSION=$(grep 'name="plugin.version"' build.xml | sed -E 's/.*value=["\']([^"\']+)["\'].*/\1/')
+          
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract plugin.version from build.xml"
+            exit 1
+          fi
+          
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected new plugin version: $VERSION"
+
+      - name: Set up Java JDK
+        if: steps.version-check.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build JOSM Plugin with Ant
+        if: steps.version-check.outputs.changed == 'true'
+        run: |
+          # Change to 'ant dist' or 'ant jar' if your build.xml requires a specific target
+          ant dist
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && steps.version-check.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version-check.outputs.version }}
+          name: JOSM Plugin v${{ steps.version-check.outputs.version }}
+          files: |
+            *.jar
+            build/*.jar
+          generate_release_notes: true
