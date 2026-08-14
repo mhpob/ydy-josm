@@ -4,6 +4,7 @@ on:
   push:
     branches: "trunk"
     paths: 'build.xml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,8 +22,12 @@ jobs:
       - name: Check version change and extract version
         id: version-check
         run: |
-          # 1. Compare HEAD^ to HEAD to see if plugin.version changed
-          CHANGES=$(git diff HEAD^ HEAD -- build.xml || echo "")
+          # 1. Check if HEAD^ exists to prevent errors on the very first repo commit
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            CHANGES=$(git diff HEAD^ HEAD -- build.xml)
+          else
+            CHANGES="plugin.version"
+          fi
           
           if ! echo "$CHANGES" | grep -q "plugin.version"; then
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -30,8 +35,8 @@ jobs:
             exit 0
           fi
           
-          # 2. Extract the plugin.version value from build.xml using Bash (grep + sed)
-          VERSION=$(grep 'name="plugin.version"' build.xml | sed -E 's/.*value=["\']([^"\']+)["\'].*/\1/')
+          # 2. Extract plugin.version safely without any regex parentheses
+          VERSION=$(grep 'name="plugin.version"' build.xml | sed 's/.*value="//' | sed 's/".*//')
           
           if [ -z "$VERSION" ]; then
             echo "Error: Could not extract plugin.version from build.xml"
