@@ -15,24 +15,29 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
       - name: Check version change and extract version
         id: version-check
         run: |
-          # 1. Check if HEAD^ exists to prevent errors on the very first repo commit
-          if git rev-parse HEAD^ >/dev/null 2>&1; then
-            CHANGES=$(git diff HEAD^ HEAD -- build.xml)
+          # If triggered manually, skip the git diff check and proceed directly
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Triggered manually via workflow_dispatch. Skipping diff check."
           else
-            CHANGES="plugin.version"
-          fi
-          
-          if ! echo "$CHANGES" | grep -q "plugin.version"; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Skipping: 'plugin.version' was not modified in build.xml."
-            exit 0
+            # 1. Check if HEAD^ exists to prevent errors on the very first repo commit
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              CHANGES=$(git diff HEAD^ HEAD -- build.xml)
+            else
+              CHANGES="plugin.version"
+            fi
+            
+            if ! echo "$CHANGES" | grep -q "plugin.version"; then
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "Skipping: 'plugin.version' was not modified in build.xml."
+              exit 0
+            fi
           fi
           
           # 2. Extract plugin.version safely without any regex parentheses
@@ -45,14 +50,14 @@ jobs:
           
           echo "changed=true" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected new plugin version: $VERSION"
+          echo "Detected plugin version: $VERSION"
 
       - name: Set up Java JDK
         if: steps.version-check.outputs.changed == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '25'
 
       - name: Build JOSM Plugin with Ant
         if: steps.version-check.outputs.changed == 'true'
@@ -62,7 +67,7 @@ jobs:
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && steps.version-check.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version-check.outputs.version }}
           name: JOSM Plugin v${{ steps.version-check.outputs.version }}
