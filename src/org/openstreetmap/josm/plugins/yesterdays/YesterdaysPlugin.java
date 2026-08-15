@@ -74,23 +74,37 @@ public class YesterdaysPlugin extends Plugin {
                     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1) {
                         MapView mv = newFrame.mapView;
                         Point clickPoint = e.getPoint();
+                        YesterdaysImage hitImage = null;
 
+                        // Pass 1: Check point layers first
                         for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
-                            if (layer.isVisible()) {
-                                YesterdaysImage hitImage = layer.getImageAtPoint(clickPoint, mv);
-                                if (hitImage != null) {
-                                    SwingUtilities.invokeLater(() -> {
-                                        YesterdaysInfoPanel panel = YesterdaysInfoPanel.getInstance();
-                                        if (panel != null) {
-                                            panel.displayImage(hitImage);
-                                            panel.setVisible(true);
-                                            panel.requestFocusInWindow();
-                                        }
-                                    });
-                                    mv.repaint();
-                                    break;
+                            if (layer.isVisible() && !layer.isFromAboveLayer()) {
+                                hitImage = layer.getImageAtPoint(clickPoint, mv);
+                                if (hitImage != null) break;
+                            }
+                        }
+
+                        // Pass 2: Fall back to from-above polygon layers
+                        if (hitImage == null) {
+                            for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
+                                if (layer.isVisible() && layer.isFromAboveLayer()) {
+                                    hitImage = layer.getImageAtPoint(clickPoint, mv);
+                                    if (hitImage != null) break;
                                 }
                             }
+                        }
+
+                        if (hitImage != null) {
+                            YesterdaysImage finalHit = hitImage;
+                            SwingUtilities.invokeLater(() -> {
+                                YesterdaysInfoPanel panel = YesterdaysInfoPanel.getInstance();
+                                if (panel != null) {
+                                    panel.displayImage(finalHit);
+                                    panel.setVisible(true);
+                                    panel.requestFocusInWindow();
+                                }
+                            });
+                            mv.repaint();
                         }
                     }
                 }
@@ -137,11 +151,11 @@ public class YesterdaysPlugin extends Plugin {
     }
 
     public static void loadImagesForBoundsAsync(Bounds bounds, Integer yearMin, Integer yearMax, boolean fetchPoints, boolean fetchFromAbove) {
-        if (fetchPoints) {
-            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/georeferences/", false);
-        }
         if (fetchFromAbove) {
             fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/from-above-georeferences/", true);
+        }
+        if (fetchPoints) {
+            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/georeferences/", false);
         }
     }
 

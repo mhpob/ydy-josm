@@ -25,11 +25,26 @@ public class YesterdaysLayer extends Layer {
         this.isFromAboveLayer = isFromAboveLayer;
     }
 
+    public boolean isFromAboveLayer() {
+        return isFromAboveLayer;
+    }
+
     public YesterdaysImage getImageAtPoint(Point clickPoint, MapView mv) {
         if (images == null || clickPoint == null || mv == null) {
             return null;
         }
 
+        // Pass 1: Prioritize point georeferences (hit-test radius = 20px)
+        for (YesterdaysImage img : images) {
+            if (!img.isFromAbove() && img.getCoordinates() != null) {
+                Point screenPt = mv.getPoint(img.getCoordinates());
+                if (screenPt != null && screenPt.distance(clickPoint) <= 20.0) {
+                    return img;
+                }
+            }
+        }
+
+        // Pass 2: Fall back to polygon footprint selection
         for (YesterdaysImage img : images) {
             if (img.isFromAbove() && img.getPolygon() != null && !img.getPolygon().isEmpty()) {
                 Path2D path = new Path2D.Double();
@@ -48,11 +63,6 @@ public class YesterdaysLayer extends Layer {
                 path.closePath();
 
                 if (path.contains(clickPoint)) {
-                    return img;
-                }
-            } else if (img.getCoordinates() != null) {
-                Point screenPt = mv.getPoint(img.getCoordinates());
-                if (screenPt != null && screenPt.distance(clickPoint) <= 20.0) {
                     return img;
                 }
             }
@@ -85,16 +95,13 @@ public class YesterdaysLayer extends Layer {
                 }
                 path.closePath();
 
-                // Fill translucent polygon
                 g2.setColor(new Color(255, 140, 0, 45));
                 g2.fill(path);
 
-                // Draw border outline
                 g2.setColor(new Color(255, 120, 0, 220));
                 g2.setStroke(new BasicStroke(2f));
                 g2.draw(path);
 
-                // Draw centroid point dot for reference
                 if (img.getCoordinates() != null) {
                     Point centerPt = mv.getPoint(img.getCoordinates());
                     if (centerPt != null) {
