@@ -7,9 +7,9 @@ import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.download.DownloadDialog;
+import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
 import org.openstreetmap.josm.plugins.Plugin;
 import org.openstreetmap.josm.plugins.PluginInformation;
-import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
 import org.openstreetmap.josm.spi.preferences.Config;
 
 import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
@@ -36,9 +36,12 @@ public class YesterdaysPlugin extends Plugin {
     public YesterdaysPlugin(PluginInformation info) {
         super(info);
         ensureWebpSupport();
-        
-        // Register the custom tab into the "Download data..." pop-up dialog
         DownloadDialog.addDownloadSource(new YesterdaysDownloadSource());
+    }
+
+    @Override
+    public PreferenceSetting getPreferenceSetting() {
+        return new YesterdaysPreferenceSetting();
     }
 
     private static void ensureWebpSupport() {
@@ -58,7 +61,6 @@ public class YesterdaysPlugin extends Plugin {
         if (newFrame != null && newFrame.mapView != null) {
             newFrame.addToggleDialog(YesterdaysInfoPanel.getInstance());
 
-            // Add global mouse listener so photo markers are clickable even when YesterdaysLayer is inactive
             newFrame.mapView.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
@@ -66,7 +68,6 @@ public class YesterdaysPlugin extends Plugin {
                         MapView mv = newFrame.mapView;
                         Point clickPoint = e.getPoint();
 
-                        // Query all YesterdaysLayer instances currently in JOSM
                         for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
                             if (layer.isVisible()) {
                                 YesterdaysImage hitImage = layer.getImageAtPoint(clickPoint, mv);
@@ -78,7 +79,7 @@ public class YesterdaysPlugin extends Plugin {
                                         panel.requestFocusInWindow();
                                     });
                                     mv.repaint();
-                                    break; // Stop after finding the first hit
+                                    break;
                                 }
                             }
                         }
@@ -124,10 +125,14 @@ public class YesterdaysPlugin extends Plugin {
         Bounds bounds = mv.getLatLonBounds(mv.getBounds());
         
         System.out.println("Fetching Yesterdays photos for bounds: " + bounds);
-        loadImagesForBoundsAsync(bounds);
+        loadImagesForBoundsAsync(bounds, null, null);
     }
 
     public static void loadImagesForBoundsAsync(Bounds bounds) {
+        loadImagesForBoundsAsync(bounds, null, null);
+    }
+
+    public static void loadImagesForBoundsAsync(Bounds bounds, Integer yearMin, Integer yearMax) {
         PleaseWaitRunnable task = new PleaseWaitRunnable("Loading Yesterdays Photos") {
             private List<YesterdaysImage> allImages = new ArrayList<>();
             private boolean success = false;
@@ -142,13 +147,21 @@ public class YesterdaysPlugin extends Plugin {
                     baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
                 }
 
-                String initialUrl = baseUrl + "/api/v2/georeferences/?in_bbox=" + 
-                                    bounds.getMinLon() + "," + 
-                                    bounds.getMinLat() + "," + 
-                                    bounds.getMaxLon() + "," + 
-                                    bounds.getMaxLat();
-                                    
-                String currentUrl = initialUrl;
+                StringBuilder urlBuilder = new StringBuilder(baseUrl)
+                    .append("/api/v2/georeferences/?in_bbox=")
+                    .append(bounds.getMinLon()).append(",")
+                    .append(bounds.getMinLat()).append(",")
+                    .append(bounds.getMaxLon()).append(",")
+                    .append(bounds.getMaxLat());
+
+                if (yearMin != null) {
+                    urlBuilder.append("&year_min=").append(yearMin);
+                }
+                if (yearMax != null) {
+                    urlBuilder.append("&year_max=").append(yearMax);
+                }
+
+                String currentUrl = urlBuilder.toString();
                 int page = 1;
 
                 try {
@@ -256,7 +269,6 @@ public class YesterdaysPlugin extends Plugin {
 
                     String json = sb.toString();
 
-                    // Parse date_display
                     Matcher dateMatcher = Pattern.compile("\"date_display\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
                     if (dateMatcher.find() && dateMatcher.group(1) != null) {
                         image.setDateDisplay(dateMatcher.group(1));
@@ -264,7 +276,6 @@ public class YesterdaysPlugin extends Plugin {
                         image.setDateDisplay("Unknown");
                     }
 
-                    // Parse license
                     Matcher licenseMatcher = Pattern.compile("\"license\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
                     if (licenseMatcher.find() && licenseMatcher.group(1) != null) {
                         image.setLicense(licenseMatcher.group(1));
@@ -272,13 +283,11 @@ public class YesterdaysPlugin extends Plugin {
                         image.setLicense("None specified");
                     }
 
-                    // Parse description
                     Matcher descMatcher = Pattern.compile("\"description\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
                     if (descMatcher.find() && descMatcher.group(1) != null) {
                         image.setDescription(descMatcher.group(1));
                     }
 
-                    // Parse original_url
                     Matcher origUrlMatcher = Pattern.compile("\"original_url\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
                     if (origUrlMatcher.find() && origUrlMatcher.group(1) != null) {
                         image.setOriginalUrl(origUrlMatcher.group(1));
@@ -349,10 +358,5 @@ public class YesterdaysPlugin extends Plugin {
             e.printStackTrace();
         }
         return imageList;
-    }
-
-    @Override
-    public PreferenceSetting getPreferenceSetting() {
-        return new YesterdaysPreferenceSetting();
     }
 }
