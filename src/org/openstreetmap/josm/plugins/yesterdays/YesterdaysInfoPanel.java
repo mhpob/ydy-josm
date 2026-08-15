@@ -27,13 +27,14 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         super("Yesterdays Photos", "geoimage", "Display historical photo details", null, 200);
         instance = this;
 
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        JPanel panel = new JPanel(new BorderLayout(4, 4));
+        panel.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 
-        titleLabel = new JLabel("Click a photo point on the map");
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 13f));
+        titleLabel = new JLabel("Click photo point");
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 12f));
         
         idLabel = new JLabel("");
+        idLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         idLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         idLabel.addMouseListener(new MouseAdapter() {
             @Override
@@ -45,7 +46,11 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         });
 
         dateLabel = new JLabel("Date: -");
-        licenseLabel = new JLabel("License: -");
+        dateLabel.setFont(dateLabel.getFont().deriveFont(11f));
+
+        licenseLabel = new JLabel("Lic: -");
+        licenseLabel.setFont(licenseLabel.getFont().deriveFont(11f));
+        licenseLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         
         imageLabel = new JLabel("No image selected", JLabel.CENTER);
         imageLabel.setPreferredSize(new Dimension(200, 180));
@@ -58,11 +63,34 @@ public class YesterdaysInfoPanel extends ToggleDialog {
             }
         });
 
-        JPanel textPanel = new JPanel(new GridLayout(0, 1, 2, 2));
-        textPanel.add(titleLabel);
-        textPanel.add(idLabel);
-        textPanel.add(dateLabel);
-        textPanel.add(licenseLabel);
+        // 2-Row x 2-Column Layout
+        JPanel textPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(1, 2, 1, 2);
+
+        // Row 0: Title (Left) & ID (Right)
+        gbc.gridy = 0;
+        gbc.gridwidth = 1;
+
+        gbc.gridx = 0;
+        gbc.weightx = 0.7;
+        textPanel.add(titleLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.3;
+        textPanel.add(idLabel, gbc);
+
+        // Row 1: Date (Left) & License (Right)
+        gbc.gridy = 1;
+
+        gbc.gridx = 0;
+        gbc.weightx = 0.5;
+        textPanel.add(dateLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.5;
+        textPanel.add(licenseLabel, gbc);
 
         panel.add(textPanel, BorderLayout.NORTH);
         panel.add(imageLabel, BorderLayout.CENTER);
@@ -81,11 +109,13 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         if (img == null) return;
 
         try {
-            titleLabel.setText(img.getTitle() != null ? img.getTitle() : "Untitled");
+            String titleText = img.getTitle() != null ? img.getTitle() : "Untitled";
+            titleLabel.setText(titleText);
+            titleLabel.setToolTipText(titleText);
             
             String imageId = img.getImageId();
             currentWebUrl = "https://yesterdays.maprva.org/" + imageId;
-            idLabel.setText("<html>ID: <a href=\"\">" + imageId + "</a></html>");
+            idLabel.setText("<html><a href=\"\">#" + imageId + "</a></html>");
 
             updateDetailLabels(img);
 
@@ -136,8 +166,11 @@ public class YesterdaysInfoPanel extends ToggleDialog {
     }
 
     private void updateDetailLabels(YesterdaysImage img) {
-        dateLabel.setText("Date: " + (img.getDateDisplay() != null ? img.getDateDisplay() : "Loading..."));
-        licenseLabel.setText("License: " + (img.getLicense() != null ? img.getLicense() : "Loading..."));
+        String dateVal = img.getDateDisplay() != null ? img.getDateDisplay() : "...";
+        String licVal = img.getLicense() != null ? img.getLicense() : "...";
+        dateLabel.setText("Date: " + dateVal);
+        licenseLabel.setText("Lic: " + licVal);
+        licenseLabel.setToolTipText("License: " + licVal);
     }
 
     private void redrawScaledImage() {
