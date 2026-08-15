@@ -9,6 +9,8 @@ import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.download.DownloadDialog;
 import org.openstreetmap.josm.plugins.Plugin;
 import org.openstreetmap.josm.plugins.PluginInformation;
+import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
+import org.openstreetmap.josm.spi.preferences.Config;
 
 import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 
@@ -132,7 +134,15 @@ public class YesterdaysPlugin extends Plugin {
 
             @Override
             protected void realRun() {
-                String initialUrl = "https://yesterdays.maprva.org/api/v2/georeferences/?in_bbox=" + 
+                String baseUrl = Config.getPref().get(
+                    YesterdaysPreferenceSetting.PREF_BASE_URL, 
+                    YesterdaysPreferenceSetting.DEFAULT_BASE_URL
+                );
+                if (baseUrl.endsWith("/")) {
+                    baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+                }
+
+                String initialUrl = baseUrl + "/api/v2/georeferences/?in_bbox=" + 
                                     bounds.getMinLon() + "," + 
                                     bounds.getMinLat() + "," + 
                                     bounds.getMaxLon() + "," + 
@@ -271,5 +281,10 @@ public class YesterdaysPlugin extends Plugin {
             e.printStackTrace();
         }
         return imageList;
+    }
+
+    @Override
+    public PreferenceSetting getPreferenceSetting() {
+        return new YesterdaysPreferenceSetting();
     }
 }
