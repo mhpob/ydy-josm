@@ -1,5 +1,6 @@
 package org.openstreetmap.josm.plugins.yesterdays;
 
+import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.dialogs.ToggleDialog;
 import org.openstreetmap.josm.spi.preferences.Config;
 import org.openstreetmap.josm.tools.OpenBrowser;
@@ -13,6 +14,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.net.URL;
+import java.util.Collections;
 
 public class YesterdaysInfoPanel extends ToggleDialog {
     private static YesterdaysInfoPanel instance;
@@ -64,16 +66,13 @@ public class YesterdaysInfoPanel extends ToggleDialog {
             }
         });
 
-        // 2-Row x 2-Column Layout
         JPanel textPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(1, 2, 1, 2);
 
-        // Row 0: Title (Left) & ID (Right)
         gbc.gridy = 0;
         gbc.gridwidth = 1;
-
         gbc.gridx = 0;
         gbc.weightx = 0.7;
         textPanel.add(titleLabel, gbc);
@@ -82,9 +81,7 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         gbc.weightx = 0.3;
         textPanel.add(idLabel, gbc);
 
-        // Row 1: Date (Left) & License (Right)
         gbc.gridy = 1;
-
         gbc.gridx = 0;
         gbc.weightx = 0.5;
         textPanel.add(dateLabel, gbc);
@@ -96,7 +93,7 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         panel.add(textPanel, BorderLayout.NORTH);
         panel.add(imageLabel, BorderLayout.CENTER);
 
-        createLayout(panel, false, null);
+        createLayout(panel, false, Collections.<SideButton>emptyList());
     }
 
     public static synchronized YesterdaysInfoPanel getInstance() {
@@ -104,6 +101,10 @@ public class YesterdaysInfoPanel extends ToggleDialog {
             instance = new YesterdaysInfoPanel();
         }
         return instance;
+    }
+
+    public static synchronized void resetInstance() {
+        instance = null;
     }
 
     public void displayImage(YesterdaysImage img) {
@@ -128,7 +129,6 @@ public class YesterdaysInfoPanel extends ToggleDialog {
 
             updateDetailLabels(img);
 
-            // Fetch detailed metadata from API if not yet cached
             if (img.getDateDisplay() == null || img.getLicense() == null) {
                 YesterdaysPlugin.loadDetailsForImageAsync(img, () -> {
                     updateDetailLabels(img);

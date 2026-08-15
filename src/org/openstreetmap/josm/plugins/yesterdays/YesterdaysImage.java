@@ -1,22 +1,34 @@
 package org.openstreetmap.josm.plugins.yesterdays;
 
+import java.awt.image.BufferedImage;
+import java.util.List;
 import org.openstreetmap.josm.data.coor.LatLon;
 
 public class YesterdaysImage {
     private final LatLon coordinates;
+    private final List<LatLon> polygon;
+    private final boolean fromAbove;
     private final String title;
     private final String thumbnailUrl;
     private final String imageId;
     private final int direction;
-    
-    // Detailed fields fetched on click
+
     private String dateDisplay;
     private String license;
     private String description;
     private String originalUrl;
 
+    private BufferedImage cachedThumbnail;
+    private boolean loadingThumbnail = false;
+
     public YesterdaysImage(LatLon coordinates, String title, String thumbnailUrl, String imageId, int direction) {
+        this(coordinates, null, false, title, thumbnailUrl, imageId, direction);
+    }
+
+    public YesterdaysImage(LatLon coordinates, List<LatLon> polygon, boolean fromAbove, String title, String thumbnailUrl, String imageId, int direction) {
         this.coordinates = coordinates;
+        this.polygon = polygon;
+        this.fromAbove = fromAbove;
         this.title = title;
         this.thumbnailUrl = thumbnailUrl;
         this.imageId = imageId;
@@ -24,6 +36,9 @@ public class YesterdaysImage {
     }
 
     public LatLon getCoordinates() { return coordinates; }
+    public LatLon getLatLon() { return coordinates; }
+    public List<LatLon> getPolygon() { return polygon; }
+    public boolean isFromAbove() { return fromAbove; }
     public String getTitle() { return title; }
     public String getThumbnailUrl() { return thumbnailUrl; }
     public String getImageId() { return imageId; }
@@ -40,4 +55,10 @@ public class YesterdaysImage {
 
     public String getOriginalUrl() { return originalUrl; }
     public void setOriginalUrl(String originalUrl) { this.originalUrl = originalUrl; }
+
+    public BufferedImage getCachedThumbnail() { return cachedThumbnail; }
+    public void setCachedThumbnail(BufferedImage cachedThumbnail) { this.cachedThumbnail = cachedThumbnail; }
+
+    public boolean isLoadingThumbnail() { return loadingThumbnail; }
+    public void setLoadingThumbnail(boolean loadingThumbnail) { this.loadingThumbnail = loadingThumbnail; }
 }

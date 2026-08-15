@@ -3,8 +3,12 @@ package org.openstreetmap.josm.plugins.yesterdays;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagLayout;
+import java.awt.event.ItemEvent;
 import java.util.List;
+import java.util.Optional;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -53,22 +57,17 @@ public class YesterdaysDownloadSource implements DownloadSource {
         }
 
         if (bounds == null && DownloadDialog.getInstance() != null) {
-            bounds = DownloadDialog.getInstance().getSelectedDownloadArea().orElse(null);
+            Optional<Bounds> opt = DownloadDialog.getInstance().getSelectedDownloadArea();
+            bounds = opt.orElse(null);
         }
 
-        if (bounds != null) {
-            Integer minYear = null;
-            Integer maxYear = null;
+        if (bounds != null && lastCreatedPanel != null) {
+            boolean fetchPoints = lastCreatedPanel.isPointsSelected();
+            boolean fetchFromAbove = lastCreatedPanel.isFromAboveSelected();
+            Integer minYear = lastCreatedPanel.getMinYear();
+            Integer maxYear = lastCreatedPanel.getMaxYear();
 
-            if (lastCreatedPanel != null) {
-                minYear = lastCreatedPanel.getMinYear();
-                maxYear = lastCreatedPanel.getMaxYear();
-            } else {
-                minYear = parseYear(Config.getPref().get("yesterdays.year_min", ""));
-                maxYear = parseYear(Config.getPref().get("yesterdays.year_max", ""));
-            }
-
-            YesterdaysPlugin.loadImagesForBoundsAsync(bounds, minYear, maxYear);
+            YesterdaysPlugin.loadImagesForBoundsAsync(bounds, minYear, maxYear, fetchPoints, fetchFromAbove);
         }
     }
 
@@ -83,6 +82,8 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
     private static class YesterdaysPanel extends AbstractDownloadSourcePanel<YesterdaysDownloadSource> {
         private final YesterdaysDownloadSource source;
+        private final JCheckBox pointsCheckBox;
+        private final JCheckBox fromAboveCheckBox;
         private final JTextField minYearField;
         private final JTextField maxYearField;
 
@@ -94,13 +95,32 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
             JLabel infoLabel = new JLabel(I18n.tr("Download historical photos from Yesterdays for the selected area."));
 
+            pointsCheckBox = new JCheckBox(I18n.tr("Point Georeferences"), true);
+            fromAboveCheckBox = new JCheckBox(I18n.tr("From-Above Georeferences"), true);
+
+            // Enforce having at least one checkbox selected
+            pointsCheckBox.addItemListener(e -> {
+                if (e.getStateChange() == ItemEvent.DESELECTED && !fromAboveCheckBox.isSelected()) {
+                    fromAboveCheckBox.setSelected(true);
+                }
+            });
+
+            fromAboveCheckBox.addItemListener(e -> {
+                if (e.getStateChange() == ItemEvent.DESELECTED && !pointsCheckBox.isSelected()) {
+                    pointsCheckBox.setSelected(true);
+                }
+            });
+
+            JPanel typePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+            typePanel.add(pointsCheckBox);
+            typePanel.add(fromAboveCheckBox);
+
             JLabel minLabel = new JLabel(I18n.tr("Min Year:"));
             minYearField = new JTextField(8);
 
             JLabel maxLabel = new JLabel(I18n.tr("Max Year:"));
             maxYearField = new JTextField(8);
 
-            // Explicit dimensions so layout managers cannot shrink text fields
             Dimension fieldSize = new Dimension(100, 28);
             minYearField.setPreferredSize(fieldSize);
             minYearField.setMinimumSize(fieldSize);
@@ -113,10 +133,19 @@ public class YesterdaysDownloadSource implements DownloadSource {
             yearPanel.add(maxLabel);
             yearPanel.add(maxYearField);
 
-            add(infoLabel, GBC.eol().fill(GBC.HORIZONTAL).insets(5, 5, 10, 5));
+            add(infoLabel, GBC.eol().fill(GBC.HORIZONTAL).insets(5, 5, 5, 5));
+            add(typePanel, GBC.eol().fill(GBC.HORIZONTAL).insets(0, 0, 5, 5));
             add(yearPanel, GBC.eol().fill(GBC.HORIZONTAL).insets(0, 0, 5, 5));
 
             restoreSettings();
+        }
+
+        public boolean isPointsSelected() {
+            return pointsCheckBox.isSelected();
+        }
+
+        public boolean isFromAboveSelected() {
+            return fromAboveCheckBox.isSelected();
         }
 
         public Integer getMinYear() {
@@ -134,18 +163,31 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
         @Override
         public boolean checkDownload(DownloadSettings settings) {
+            if (!pointsCheckBox.isSelected() && !fromAboveCheckBox.isSelected()) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    I18n.tr("Please select at least one georeference type."),
+                    I18n.tr("Selection Required"),
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return false;
+            }
             rememberSettings();
             return true;
         }
 
         @Override
         public void restoreSettings() {
+            pointsCheckBox.setSelected(Config.getPref().getBoolean("yesterdays.fetch_points", true));
+            fromAboveCheckBox.setSelected(Config.getPref().getBoolean("yesterdays.fetch_from_above", true));
             minYearField.setText(Config.getPref().get("yesterdays.year_min", ""));
             maxYearField.setText(Config.getPref().get("yesterdays.year_max", ""));
         }
 
         @Override
         public void rememberSettings() {
+            Config.getPref().putBoolean("yesterdays.fetch_points", pointsCheckBox.isSelected());
+            Config.getPref().putBoolean("yesterdays.fetch_from_above", fromAboveCheckBox.isSelected());
             Config.getPref().put("yesterdays.year_min", minYearField.getText().trim());
             Config.getPref().put("yesterdays.year_max", maxYearField.getText().trim());
         }
