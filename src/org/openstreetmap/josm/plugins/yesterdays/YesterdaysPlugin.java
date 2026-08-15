@@ -226,6 +226,74 @@ public class YesterdaysPlugin extends Plugin {
         MainApplication.worker.submit(task);
     }
 
+    public static void loadDetailsForImageAsync(YesterdaysImage image, Runnable onComplete) {
+        MainApplication.worker.submit(() -> {
+            try {
+                String baseUrl = Config.getPref().get(
+                    YesterdaysPreferenceSetting.PREF_BASE_URL, 
+                    YesterdaysPreferenceSetting.DEFAULT_BASE_URL
+                );
+                if (baseUrl.endsWith("/")) {
+                    baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+                }
+
+                String detailsUrl = baseUrl + "/api/v2/images/" + image.getImageId() + "/";
+                URL url = new URL(detailsUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
+
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8)
+                    );
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+
+                    String json = sb.toString();
+
+                    // Parse date_display
+                    Matcher dateMatcher = Pattern.compile("\"date_display\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
+                    if (dateMatcher.find() && dateMatcher.group(1) != null) {
+                        image.setDateDisplay(dateMatcher.group(1));
+                    } else {
+                        image.setDateDisplay("Unknown");
+                    }
+
+                    // Parse license
+                    Matcher licenseMatcher = Pattern.compile("\"license\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
+                    if (licenseMatcher.find() && licenseMatcher.group(1) != null) {
+                        image.setLicense(licenseMatcher.group(1));
+                    } else {
+                        image.setLicense("None specified");
+                    }
+
+                    // Parse description
+                    Matcher descMatcher = Pattern.compile("\"description\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
+                    if (descMatcher.find() && descMatcher.group(1) != null) {
+                        image.setDescription(descMatcher.group(1));
+                    }
+
+                    // Parse original_url
+                    Matcher origUrlMatcher = Pattern.compile("\"original_url\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
+                    if (origUrlMatcher.find() && origUrlMatcher.group(1) != null) {
+                        image.setOriginalUrl(origUrlMatcher.group(1));
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (onComplete != null) {
+                    SwingUtilities.invokeLater(onComplete);
+                }
+            }
+        });
+    }
+
     private static String extractNextUrl(String json) {
         Matcher m = Pattern.compile("\"next\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
         if (m.find()) {

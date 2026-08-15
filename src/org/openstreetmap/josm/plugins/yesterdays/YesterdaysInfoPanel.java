@@ -17,6 +17,8 @@ public class YesterdaysInfoPanel extends ToggleDialog {
     private static YesterdaysInfoPanel instance;
     private final JLabel titleLabel;
     private final JLabel idLabel;
+    private final JLabel dateLabel;
+    private final JLabel licenseLabel;
     private final JLabel imageLabel;
     private BufferedImage currentImage;
     private String currentWebUrl;
@@ -41,6 +43,9 @@ public class YesterdaysInfoPanel extends ToggleDialog {
                 }
             }
         });
+
+        dateLabel = new JLabel("Date: -");
+        licenseLabel = new JLabel("License: -");
         
         imageLabel = new JLabel("No image selected", JLabel.CENTER);
         imageLabel.setPreferredSize(new Dimension(200, 180));
@@ -53,9 +58,11 @@ public class YesterdaysInfoPanel extends ToggleDialog {
             }
         });
 
-        JPanel textPanel = new JPanel(new GridLayout(2, 1, 2, 2));
+        JPanel textPanel = new JPanel(new GridLayout(0, 1, 2, 2));
         textPanel.add(titleLabel);
         textPanel.add(idLabel);
+        textPanel.add(dateLabel);
+        textPanel.add(licenseLabel);
 
         panel.add(textPanel, BorderLayout.NORTH);
         panel.add(imageLabel, BorderLayout.CENTER);
@@ -76,9 +83,20 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         try {
             titleLabel.setText(img.getTitle() != null ? img.getTitle() : "Untitled");
             
-            String imageId = img.getUuid();
+            String imageId = img.getImageId();
             currentWebUrl = "https://yesterdays.maprva.org/" + imageId;
             idLabel.setText("<html>ID: <a href=\"\">" + imageId + "</a></html>");
+
+            updateDetailLabels(img);
+
+            // Fetch detailed metadata from API if not yet cached
+            if (img.getDateDisplay() == null || img.getLicense() == null) {
+                YesterdaysPlugin.loadDetailsForImageAsync(img, () -> {
+                    updateDetailLabels(img);
+                    revalidate();
+                    repaint();
+                });
+            }
 
             String imageUrl = img.getThumbnailUrl();
 
@@ -115,6 +133,11 @@ public class YesterdaysInfoPanel extends ToggleDialog {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void updateDetailLabels(YesterdaysImage img) {
+        dateLabel.setText("Date: " + (img.getDateDisplay() != null ? img.getDateDisplay() : "Loading..."));
+        licenseLabel.setText("License: " + (img.getLicense() != null ? img.getLicense() : "Loading..."));
     }
 
     private void redrawScaledImage() {
