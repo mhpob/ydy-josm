@@ -32,7 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class YesterdaysPlugin extends Plugin {
-    
+
     public YesterdaysPlugin(PluginInformation info) {
         super(info);
         ensureWebpSupport();
@@ -58,8 +58,15 @@ public class YesterdaysPlugin extends Plugin {
     @Override
     public void mapFrameInitialized(MapFrame oldFrame, MapFrame newFrame) {
         super.mapFrameInitialized(oldFrame, newFrame);
-        if (newFrame != null && newFrame.mapView != null) {
-            newFrame.addToggleDialog(YesterdaysInfoPanel.getInstance());
+
+        if (newFrame == null) {
+            YesterdaysInfoPanel.resetInstance();
+            return;
+        }
+
+        if (newFrame.mapView != null) {
+            YesterdaysInfoPanel infoPanel = YesterdaysInfoPanel.getInstance();
+            newFrame.addToggleDialog(infoPanel);
 
             newFrame.mapView.addMouseListener(new MouseAdapter() {
                 @Override
@@ -74,9 +81,11 @@ public class YesterdaysPlugin extends Plugin {
                                 if (hitImage != null) {
                                     SwingUtilities.invokeLater(() -> {
                                         YesterdaysInfoPanel panel = YesterdaysInfoPanel.getInstance();
-                                        panel.displayImage(hitImage);
-                                        panel.setVisible(true);
-                                        panel.requestFocusInWindow();
+                                        if (panel != null) {
+                                            panel.displayImage(hitImage);
+                                            panel.setVisible(true);
+                                            panel.requestFocusInWindow();
+                                        }
                                     });
                                     mv.repaint();
                                     break;
@@ -97,7 +106,7 @@ public class YesterdaysPlugin extends Plugin {
                         break;
                     }
                 }
-                
+
                 if (!alreadyAdded) {
                     dataMenu.add(new AbstractAction("Load Yesterdays Photos") {
                         @Override
@@ -124,16 +133,22 @@ public class YesterdaysPlugin extends Plugin {
         MapView mv = MainApplication.getMap().mapView;
         Bounds bounds = mv.getLatLonBounds(mv.getBounds());
         
-        System.out.println("Fetching Yesterdays photos for bounds: " + bounds);
-        loadImagesForBoundsAsync(bounds, null, null);
+        loadImagesForBoundsAsync(bounds, null, null, true, true);
     }
 
-    public static void loadImagesForBoundsAsync(Bounds bounds) {
-        loadImagesForBoundsAsync(bounds, null, null);
+    public static void loadImagesForBoundsAsync(Bounds bounds, Integer yearMin, Integer yearMax, boolean fetchPoints, boolean fetchFromAbove) {
+        if (fetchPoints) {
+            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/georeferences/", false);
+        }
+        if (fetchFromAbove) {
+            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/from-above-georeferences/", true);
+        }
     }
 
-    public static void loadImagesForBoundsAsync(Bounds bounds, Integer yearMin, Integer yearMax) {
-        PleaseWaitRunnable task = new PleaseWaitRunnable("Loading Yesterdays Photos") {
+    private static void fetchAndAddLayer(Bounds bounds, Integer yearMin, Integer yearMax, String endpointPath, boolean isFromAbove) {
+        String taskName = isFromAbove ? "Loading Yesterdays From-Above Photos" : "Loading Yesterdays Point Photos";
+        
+        PleaseWaitRunnable task = new PleaseWaitRunnable(taskName) {
             private List<YesterdaysImage> allImages = new ArrayList<>();
             private boolean success = false;
 
@@ -148,7 +163,8 @@ public class YesterdaysPlugin extends Plugin {
                 }
 
                 StringBuilder urlBuilder = new StringBuilder(baseUrl)
-                    .append("/api/v2/georeferences/?in_bbox=")
+                    .append(endpointPath)
+                    .append("?in_bbox=")
                     .append(bounds.getMinLon()).append(",")
                     .append(bounds.getMinLat()).append(",")
                     .append(bounds.getMaxLon()).append(",")
@@ -194,7 +210,10 @@ public class YesterdaysPlugin extends Plugin {
 
                         String jsonResponse = responseBuilder.toString();
 
-                        List<YesterdaysImage> pageImages = parseImagesFromJson(jsonResponse);
+                        List<YesterdaysImage> pageImages = isFromAbove 
+                            ? parseFromAboveImagesFromJson(jsonResponse) 
+                            : parsePointImagesFromJson(jsonResponse);
+
                         if (pageImages.isEmpty()) {
                             break;
                         }
@@ -217,13 +236,13 @@ public class YesterdaysPlugin extends Plugin {
             @Override
             protected void finish() {
                 if (success) {
-                    YesterdaysLayer layer = new YesterdaysLayer(allImages);
+                    YesterdaysLayer layer = new YesterdaysLayer(allImages, isFromAbove);
                     MainApplication.getLayerManager().addLayer(layer);
-                    System.out.println("Successfully added layer with " + allImages.size() + " total images.");
+                    System.out.println("Successfully added layer with " + allImages.size() + " images.");
                 } else if (!progressMonitor.isCanceled()) {
                     JOptionPane.showMessageDialog(
                         MainApplication.getMainFrame(),
-                        "No historical photos found in this view area.",
+                        "No photos found for " + (isFromAbove ? "from-above" : "point") + " georeferences in this area.",
                         "Yesterdays",
                         JOptionPane.INFORMATION_MESSAGE
                     );
@@ -314,7 +333,7 @@ public class YesterdaysPlugin extends Plugin {
         return null;
     }
 
-    private static List<YesterdaysImage> parseImagesFromJson(String json) {
+    private static List<YesterdaysImage> parsePointImagesFromJson(String json) {
         List<YesterdaysImage> imageList = new ArrayList<>();
         try {
             Matcher matcher = Pattern.compile("\\{\\s*\"id\":\\s*(\\d+),.*?\"geometry\":\\s*\\{.*?\"coordinates\":\\s*\\[([\\d\\.\\-]+),\\s*([\\d\\.\\-]+)\\].*?\"properties\":\\s*\\{(.*?)\\}\\s*\\}", Pattern.DOTALL).matcher(json);
@@ -350,9 +369,69 @@ public class YesterdaysPlugin extends Plugin {
                 if (dirMatcher.find()) {
                     direction = (int) Double.parseDouble(dirMatcher.group(1));
                 }
-                
+
                 YesterdaysImage img = new YesterdaysImage(latLon, title, thumbnailUrl, imageId, direction);
                 imageList.add(img);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return imageList;
+    }
+
+    private static List<YesterdaysImage> parseFromAboveImagesFromJson(String json) {
+        List<YesterdaysImage> imageList = new ArrayList<>();
+        try {
+            String[] features = json.split("\"type\"\\s*:\\s*\"Feature\"");
+            for (String featureBlock : features) {
+                if (!featureBlock.contains("\"geometry\"")) continue;
+
+                String propertiesBlock = "";
+                Matcher propMatcher = Pattern.compile("\"properties\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(featureBlock);
+                if (propMatcher.find()) {
+                    propertiesBlock = propMatcher.group(1);
+                }
+
+                String imageId = "";
+                Matcher imgIdMatcher = Pattern.compile("\"image_id\":\\s*\"?([^\",\\}\n]+)\"?").matcher(propertiesBlock);
+                if (imgIdMatcher.find()) {
+                    imageId = imgIdMatcher.group(1).trim();
+                } else {
+                    Matcher idMatcher = Pattern.compile("\"id\":\\s*(\\d+)").matcher(propertiesBlock);
+                    if (idMatcher.find()) {
+                        imageId = idMatcher.group(1);
+                    }
+                }
+
+                String title = "Untitled";
+                Matcher titleMatcher = Pattern.compile("\"image_title\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
+                if (titleMatcher.find()) {
+                    title = titleMatcher.group(1);
+                }
+
+                String thumbnailUrl = "";
+                Matcher thumbMatcher = Pattern.compile("\"image_thumbnail\":\\s*\"([^\"]*)\"").matcher(propertiesBlock);
+                if (thumbMatcher.find()) {
+                    thumbnailUrl = thumbMatcher.group(1);
+                }
+
+                List<LatLon> polyCoords = new ArrayList<>();
+                Matcher coordMatcher = Pattern.compile("\\[\\s*([\\d\\.\\-]+)\\s*,\\s*([\\d\\.\\-]+)\\s*\\]").matcher(featureBlock);
+                double sumLat = 0, sumLon = 0;
+                while (coordMatcher.find()) {
+                    double lon = Double.parseDouble(coordMatcher.group(1));
+                    double lat = Double.parseDouble(coordMatcher.group(2));
+                    LatLon coord = new LatLon(lat, lon);
+                    polyCoords.add(coord);
+                    sumLat += lat;
+                    sumLon += lon;
+                }
+
+                if (!polyCoords.isEmpty()) {
+                    LatLon centroid = new LatLon(sumLat / polyCoords.size(), sumLon / polyCoords.size());
+                    YesterdaysImage img = new YesterdaysImage(centroid, polyCoords, true, title, thumbnailUrl, imageId, 0);
+                    imageList.add(img);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
