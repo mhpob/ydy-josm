@@ -1,6 +1,7 @@
 package org.openstreetmap.josm.plugins.yesterdays;
 
 import org.openstreetmap.josm.gui.dialogs.ToggleDialog;
+import org.openstreetmap.josm.spi.preferences.Config;
 import org.openstreetmap.josm.tools.OpenBrowser;
 
 import javax.imageio.ImageIO;
@@ -113,8 +114,16 @@ public class YesterdaysInfoPanel extends ToggleDialog {
             titleLabel.setText(titleText);
             titleLabel.setToolTipText(titleText);
             
+            String baseUrl = Config.getPref().get(
+                YesterdaysPreferenceSetting.PREF_BASE_URL, 
+                YesterdaysPreferenceSetting.DEFAULT_BASE_URL
+            );
+            if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+
             String imageId = img.getImageId();
-            currentWebUrl = "https://yesterdays.maprva.org/" + imageId;
+            currentWebUrl = baseUrl + "/" + imageId;
             idLabel.setText("<html><a href=\"\">#" + imageId + "</a></html>");
 
             updateDetailLabels(img);

@@ -4,6 +4,7 @@ import org.openstreetmap.josm.actions.JosmAction;
 import org.openstreetmap.josm.gui.MainApplication;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
+import org.openstreetmap.josm.spi.preferences.Config;
 
 import java.awt.event.ActionEvent;
 import java.io.BufferedReader;
@@ -30,7 +31,15 @@ public class FetchYesterdaysAction extends JosmAction {
             bounds.getMin().lon(), bounds.getMin().lat(), 
             bounds.getMax().lon(), bounds.getMax().lat());
 
-        String apiUrl = "https://yesterdays.maprva.org/api/v2/georeferences/?in_bbox=" + bbox;
+        String baseUrl = Config.getPref().get(
+            YesterdaysPreferenceSetting.PREF_BASE_URL, 
+            YesterdaysPreferenceSetting.DEFAULT_BASE_URL
+        );
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        String apiUrl = baseUrl + "/api/v2/georeferences/?in_bbox=" + bbox;
 
         new Thread(() -> {
             try {

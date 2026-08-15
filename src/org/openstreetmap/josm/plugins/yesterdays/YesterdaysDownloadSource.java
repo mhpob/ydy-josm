@@ -23,7 +23,7 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
     @Override
     public String getLabel() {
-        return I18n.tr("MapRVA Yesterdays");
+        return I18n.tr("Yesterdays");
     }
 
     @Override
@@ -92,7 +92,7 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
             setLayout(new GridBagLayout());
 
-            JLabel infoLabel = new JLabel(I18n.tr("Download historical photos from MapRVA Yesterdays for the selected area."));
+            JLabel infoLabel = new JLabel(I18n.tr("Download historical photos from Yesterdays for the selected area."));
 
             JLabel minLabel = new JLabel(I18n.tr("Min Year:"));
             minYearField = new JTextField(8);
