@@ -47,6 +47,7 @@ public class FetchYesterdaysAction extends JosmAction {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept", "application/geo+json, application/json");
+                conn.setRequestProperty("User-Agent", YesterdaysPlugin.getUserAgent());
 
                 if (conn.getResponseCode() == 200) {
                     List<YesterdaysImage> fetchedImages = new ArrayList<>();

@@ -1,6 +1,7 @@
 package org.openstreetmap.josm.plugins.yesterdays;
 
 import org.openstreetmap.josm.data.Bounds;
+import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.gui.MainApplication;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
@@ -33,10 +34,20 @@ import java.util.regex.Pattern;
 
 public class YesterdaysPlugin extends Plugin {
 
+    private static PluginInformation info;
+
     public YesterdaysPlugin(PluginInformation info) {
         super(info);
+        YesterdaysPlugin.info = info;
         ensureWebpSupport();
         DownloadDialog.addDownloadSource(new YesterdaysDownloadSource());
+    }
+
+    public static String getUserAgent() {
+        String version = (info != null && info.version != null && !info.version.isEmpty()) 
+            ? info.version 
+            : "dev";
+        return "JOSM-YesterdaysPlugin/" + version + " (" + Version.getInstance().getAgentString() + ")";
     }
 
     @Override
@@ -76,7 +87,6 @@ public class YesterdaysPlugin extends Plugin {
                         Point clickPoint = e.getPoint();
                         YesterdaysImage hitImage = null;
 
-                        // Pass 1: Check point layers first
                         for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
                             if (layer.isVisible() && !layer.isFromAboveLayer()) {
                                 hitImage = layer.getImageAtPoint(clickPoint, mv);
@@ -84,7 +94,6 @@ public class YesterdaysPlugin extends Plugin {
                             }
                         }
 
-                        // Pass 2: Fall back to from-above polygon layers
                         if (hitImage == null) {
                             for (YesterdaysLayer layer : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
                                 if (layer.isVisible() && layer.isFromAboveLayer()) {
@@ -193,6 +202,7 @@ public class YesterdaysPlugin extends Plugin {
 
                 String currentUrl = urlBuilder.toString();
                 int page = 1;
+                int totalCount = -1;
 
                 try {
                     while (currentUrl != null && !currentUrl.isEmpty()) {
@@ -200,12 +210,17 @@ public class YesterdaysPlugin extends Plugin {
                             break;
                         }
 
-                        progressMonitor.subTask("Loading page " + page + " (" + allImages.size() + " items collected)...");
+                        if (totalCount > 0) {
+                            progressMonitor.subTask("Loading page " + page + " (" + allImages.size() + " of " + totalCount + " items collected)...");
+                        } else {
+                            progressMonitor.subTask("Loading page " + page + " (" + allImages.size() + " items collected)...");
+                        }
 
                         URL url = new URL(currentUrl);
                         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                         conn.setRequestMethod("GET");
                         conn.setRequestProperty("Accept", "application/json");
+                        conn.setRequestProperty("User-Agent", getUserAgent());
 
                         if (conn.getResponseCode() != 200) {
                             System.err.println("API request failed with HTTP code: " + conn.getResponseCode());
@@ -224,6 +239,17 @@ public class YesterdaysPlugin extends Plugin {
 
                         String jsonResponse = responseBuilder.toString();
 
+                        // Parse total count on page 1 to set progress bar bounds
+                        if (page == 1) {
+                            Matcher countMatcher = Pattern.compile("\"count\"\\s*:\\s*(\\d+)").matcher(jsonResponse);
+                            if (countMatcher.find()) {
+                                totalCount = Integer.parseInt(countMatcher.group(1));
+                                if (totalCount > 0) {
+                                    progressMonitor.setTicksCount(totalCount);
+                                }
+                            }
+                        }
+
                         List<YesterdaysImage> pageImages = isFromAbove 
                             ? parseFromAboveImagesFromJson(jsonResponse) 
                             : parsePointImagesFromJson(jsonResponse);
@@ -232,6 +258,11 @@ public class YesterdaysPlugin extends Plugin {
                             break;
                         }
                         allImages.addAll(pageImages);
+
+                        // Advance progress bar by the number of fetched features
+                        if (totalCount > 0) {
+                            progressMonitor.worked(pageImages.size());
+                        }
 
                         currentUrl = extractNextUrl(jsonResponse);
                         page++;
@@ -288,6 +319,7 @@ public class YesterdaysPlugin extends Plugin {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept", "application/json");
+                conn.setRequestProperty("User-Agent", getUserAgent());
 
                 if (conn.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(

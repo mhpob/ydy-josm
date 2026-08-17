@@ -13,6 +13,7 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Collections;
 
@@ -148,7 +149,9 @@ public class YesterdaysInfoPanel extends ToggleDialog {
                 new Thread(() -> {
                     try {
                         URL url = new URL(finalUrl);
-                        BufferedImage downloadedImg = ImageIO.read(url);
+                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestProperty("User-Agent", YesterdaysPlugin.getUserAgent());
+                        BufferedImage downloadedImg = ImageIO.read(conn.getInputStream());
                         
                         if (downloadedImg != null) {
                             currentImage = downloadedImg;
