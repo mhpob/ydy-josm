@@ -4,9 +4,14 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagLayout;
 import java.awt.event.ItemEvent;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import javax.swing.BorderFactory;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -64,19 +69,9 @@ public class YesterdaysDownloadSource implements DownloadSource {
         if (bounds != null && lastCreatedPanel != null) {
             boolean fetchPoints = lastCreatedPanel.isPointsSelected();
             boolean fetchFromAbove = lastCreatedPanel.isFromAboveSelected();
-            Integer minYear = lastCreatedPanel.getMinYear();
-            Integer maxYear = lastCreatedPanel.getMaxYear();
+            Map<String, String> filters = lastCreatedPanel.getFilterMap();
 
-            YesterdaysPlugin.loadImagesForBoundsAsync(bounds, minYear, maxYear, fetchPoints, fetchFromAbove);
-        }
-    }
-
-    private static Integer parseYear(String text) {
-        if (text == null || text.trim().isEmpty()) return null;
-        try {
-            return Integer.parseInt(text.trim());
-        } catch (NumberFormatException e) {
-            return null;
+            YesterdaysPlugin.loadImagesForBoundsAsync(bounds, filters, fetchPoints, fetchFromAbove);
         }
     }
 
@@ -84,8 +79,18 @@ public class YesterdaysDownloadSource implements DownloadSource {
         private final YesterdaysDownloadSource source;
         private final JCheckBox pointsCheckBox;
         private final JCheckBox fromAboveCheckBox;
+
+        // Basic Filters
         private final JTextField minYearField;
         private final JTextField maxYearField;
+        private final JComboBox<String> confidenceCombo;
+
+        // Entity Filters
+        private final JTextField imageIdField;
+        private final JTextField sourceIdField;
+        private final JTextField collectionIdField;
+        private final JTextField subjectIdField;
+        private final JTextField georeferencedByField;
 
         public YesterdaysPanel(YesterdaysDownloadSource source) {
             super(source);
@@ -95,10 +100,10 @@ public class YesterdaysDownloadSource implements DownloadSource {
 
             JLabel infoLabel = new JLabel(I18n.tr("Download historical photos from Yesterdays for the selected area."));
 
+            // Checkboxes
             pointsCheckBox = new JCheckBox(I18n.tr("Point Georeferences"), true);
             fromAboveCheckBox = new JCheckBox(I18n.tr("From-Above Georeferences"), true);
 
-            // Enforce having at least one checkbox selected
             pointsCheckBox.addItemListener(e -> {
                 if (e.getStateChange() == ItemEvent.DESELECTED && !fromAboveCheckBox.isSelected()) {
                     fromAboveCheckBox.setSelected(true);
@@ -115,29 +120,57 @@ public class YesterdaysDownloadSource implements DownloadSource {
             typePanel.add(pointsCheckBox);
             typePanel.add(fromAboveCheckBox);
 
-            JLabel minLabel = new JLabel(I18n.tr("Min Year:"));
-            minYearField = new JTextField(8);
+            // Basic Filter Row (Years & Confidence)
+            minYearField = createCompactTextField();
+            maxYearField = createCompactTextField();
+            confidenceCombo = new JComboBox<>(new String[]{"Any", "high", "medium", "low"});
 
-            JLabel maxLabel = new JLabel(I18n.tr("Max Year:"));
-            maxYearField = new JTextField(8);
+            JPanel basicFilterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+            basicFilterPanel.add(new JLabel(I18n.tr("Min Year:")));
+            basicFilterPanel.add(minYearField);
+            basicFilterPanel.add(new JLabel(I18n.tr("Max Year:")));
+            basicFilterPanel.add(maxYearField);
+            basicFilterPanel.add(new JLabel(I18n.tr("Confidence:")));
+            basicFilterPanel.add(confidenceCombo);
 
-            Dimension fieldSize = new Dimension(100, 28);
-            minYearField.setPreferredSize(fieldSize);
-            minYearField.setMinimumSize(fieldSize);
-            maxYearField.setPreferredSize(fieldSize);
-            maxYearField.setMinimumSize(fieldSize);
+            // Advanced ID Filters Sub-Panel
+            imageIdField = createCompactTextField();
+            sourceIdField = createCompactTextField();
+            collectionIdField = createCompactTextField();
+            subjectIdField = createCompactTextField();
+            georeferencedByField = createCompactTextField();
 
-            JPanel yearPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
-            yearPanel.add(minLabel);
-            yearPanel.add(minYearField);
-            yearPanel.add(maxLabel);
-            yearPanel.add(maxYearField);
+            JPanel entityPanel = new JPanel(new GridBagLayout());
+            entityPanel.setBorder(BorderFactory.createTitledBorder(I18n.tr("Filter by IDs")));
 
+            entityPanel.add(new JLabel(I18n.tr("Image ID:")), GBC.std().insets(4, 4, 4, 4));
+            entityPanel.add(imageIdField, GBC.std().insets(4, 4, 4, 12));
+            entityPanel.add(new JLabel(I18n.tr("Source ID:")), GBC.std().insets(4, 4, 4, 4));
+            entityPanel.add(sourceIdField, GBC.eol().insets(4, 4, 4, 4));
+
+            entityPanel.add(new JLabel(I18n.tr("Collection ID:")), GBC.std().insets(4, 4, 4, 4));
+            entityPanel.add(collectionIdField, GBC.std().insets(4, 4, 4, 12));
+            entityPanel.add(new JLabel(I18n.tr("Subject ID:")), GBC.std().insets(4, 4, 4, 4));
+            entityPanel.add(subjectIdField, GBC.eol().insets(4, 4, 4, 4));
+
+            entityPanel.add(new JLabel(I18n.tr("OSM User ID:")), GBC.std().insets(4, 4, 4, 4));
+            entityPanel.add(georeferencedByField, GBC.eol().fill(GBC.HORIZONTAL).insets(4, 4, 4, 4));
+
+            // Main Panel Assembly
             add(infoLabel, GBC.eol().fill(GBC.HORIZONTAL).insets(5, 5, 5, 5));
             add(typePanel, GBC.eol().fill(GBC.HORIZONTAL).insets(0, 0, 5, 5));
-            add(yearPanel, GBC.eol().fill(GBC.HORIZONTAL).insets(0, 0, 5, 5));
+            add(basicFilterPanel, GBC.eol().fill(GBC.HORIZONTAL).insets(0, 0, 5, 5));
+            add(entityPanel, GBC.eol().fill(GBC.HORIZONTAL).insets(5, 5, 5, 5));
 
             restoreSettings();
+        }
+
+        private JTextField createCompactTextField() {
+            JTextField field = new JTextField(6);
+            Dimension d = new Dimension(80, 26);
+            field.setPreferredSize(d);
+            field.setMinimumSize(d);
+            return field;
         }
 
         public boolean isPointsSelected() {
@@ -148,12 +181,30 @@ public class YesterdaysDownloadSource implements DownloadSource {
             return fromAboveCheckBox.isSelected();
         }
 
-        public Integer getMinYear() {
-            return parseYear(minYearField.getText());
+        public Map<String, String> getFilterMap() {
+            Map<String, String> filters = new HashMap<>();
+
+            putIfNotEmpty(filters, "year_min", minYearField.getText());
+            putIfNotEmpty(filters, "year_max", maxYearField.getText());
+
+            String conf = (String) confidenceCombo.getSelectedItem();
+            if (conf != null && !conf.equalsIgnoreCase("Any")) {
+                filters.put("confidence", conf.toLowerCase());
+            }
+
+            putIfNotEmpty(filters, "image", imageIdField.getText());
+            putIfNotEmpty(filters, "source", sourceIdField.getText());
+            putIfNotEmpty(filters, "collection", collectionIdField.getText());
+            putIfNotEmpty(filters, "subject", subjectIdField.getText());
+            putIfNotEmpty(filters, "georeferenced_by", georeferencedByField.getText());
+
+            return filters;
         }
 
-        public Integer getMaxYear() {
-            return parseYear(maxYearField.getText());
+        private void putIfNotEmpty(Map<String, String> map, String key, String value) {
+            if (value != null && !value.trim().isEmpty()) {
+                map.put(key, value.trim());
+            }
         }
 
         @Override
@@ -182,6 +233,13 @@ public class YesterdaysDownloadSource implements DownloadSource {
             fromAboveCheckBox.setSelected(Config.getPref().getBoolean("yesterdays.fetch_from_above", true));
             minYearField.setText(Config.getPref().get("yesterdays.year_min", ""));
             maxYearField.setText(Config.getPref().get("yesterdays.year_max", ""));
+            confidenceCombo.setSelectedItem(Config.getPref().get("yesterdays.confidence", "Any"));
+
+            imageIdField.setText(Config.getPref().get("yesterdays.filter_image", ""));
+            sourceIdField.setText(Config.getPref().get("yesterdays.filter_source", ""));
+            collectionIdField.setText(Config.getPref().get("yesterdays.filter_collection", ""));
+            subjectIdField.setText(Config.getPref().get("yesterdays.filter_subject", ""));
+            georeferencedByField.setText(Config.getPref().get("yesterdays.filter_georeferenced_by", ""));
         }
 
         @Override
@@ -190,6 +248,13 @@ public class YesterdaysDownloadSource implements DownloadSource {
             Config.getPref().putBoolean("yesterdays.fetch_from_above", fromAboveCheckBox.isSelected());
             Config.getPref().put("yesterdays.year_min", minYearField.getText().trim());
             Config.getPref().put("yesterdays.year_max", maxYearField.getText().trim());
+            Config.getPref().put("yesterdays.confidence", (String) confidenceCombo.getSelectedItem());
+
+            Config.getPref().put("yesterdays.filter_image", imageIdField.getText().trim());
+            Config.getPref().put("yesterdays.filter_source", sourceIdField.getText().trim());
+            Config.getPref().put("yesterdays.filter_collection", collectionIdField.getText().trim());
+            Config.getPref().put("yesterdays.filter_subject", subjectIdField.getText().trim());
+            Config.getPref().put("yesterdays.filter_georeferenced_by", georeferencedByField.getText().trim());
         }
 
         @Override

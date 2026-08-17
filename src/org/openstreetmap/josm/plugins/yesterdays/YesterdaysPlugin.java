@@ -29,6 +29,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -156,19 +157,19 @@ public class YesterdaysPlugin extends Plugin {
         MapView mv = MainApplication.getMap().mapView;
         Bounds bounds = mv.getLatLonBounds(mv.getBounds());
         
-        loadImagesForBoundsAsync(bounds, null, null, true, true);
+        loadImagesForBoundsAsync(bounds, null, true, true);
     }
 
-    public static void loadImagesForBoundsAsync(Bounds bounds, Integer yearMin, Integer yearMax, boolean fetchPoints, boolean fetchFromAbove) {
+    public static void loadImagesForBoundsAsync(Bounds bounds, Map<String, String> filters, boolean fetchPoints, boolean fetchFromAbove) {
         if (fetchFromAbove) {
-            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/from-above-georeferences/", true);
+            fetchAndAddLayer(bounds, filters, "/api/v2/from-above-georeferences/", true);
         }
         if (fetchPoints) {
-            fetchAndAddLayer(bounds, yearMin, yearMax, "/api/v2/georeferences/", false);
+            fetchAndAddLayer(bounds, filters, "/api/v2/georeferences/", false);
         }
     }
 
-    private static void fetchAndAddLayer(Bounds bounds, Integer yearMin, Integer yearMax, String endpointPath, boolean isFromAbove) {
+    private static void fetchAndAddLayer(Bounds bounds, Map<String, String> filters, String endpointPath, boolean isFromAbove) {
         String taskName = isFromAbove ? "Loading Yesterdays From-Above Photos" : "Loading Yesterdays Point Photos";
         
         PleaseWaitRunnable task = new PleaseWaitRunnable(taskName) {
@@ -186,18 +187,17 @@ public class YesterdaysPlugin extends Plugin {
                 }
 
                 StringBuilder urlBuilder = new StringBuilder(baseUrl)
-                    .append(endpointPath)
-                    .append("?in_bbox=")
-                    .append(bounds.getMinLon()).append(",")
-                    .append(bounds.getMinLat()).append(",")
-                    .append(bounds.getMaxLon()).append(",")
-                    .append(bounds.getMaxLat());
+                        .append(endpointPath)
+                        .append("?in_bbox=")
+                        .append(bounds.getMinLon()).append(",")
+                        .append(bounds.getMinLat()).append(",")
+                        .append(bounds.getMaxLon()).append(",")
+                        .append(bounds.getMaxLat());
 
-                if (yearMin != null) {
-                    urlBuilder.append("&year_min=").append(yearMin);
-                }
-                if (yearMax != null) {
-                    urlBuilder.append("&year_max=").append(yearMax);
+                if (filters != null) {
+                    for (Map.Entry<String, String> entry : filters.entrySet()) {
+                        urlBuilder.append("&").append(entry.getKey()).append("=").append(entry.getValue());
+                    }
                 }
 
                 String currentUrl = urlBuilder.toString();
@@ -239,7 +239,6 @@ public class YesterdaysPlugin extends Plugin {
 
                         String jsonResponse = responseBuilder.toString();
 
-                        // Parse total count on page 1 to set progress bar bounds
                         if (page == 1) {
                             Matcher countMatcher = Pattern.compile("\"count\"\\s*:\\s*(\\d+)").matcher(jsonResponse);
                             if (countMatcher.find()) {
@@ -259,7 +258,6 @@ public class YesterdaysPlugin extends Plugin {
                         }
                         allImages.addAll(pageImages);
 
-                        // Advance progress bar by the number of fetched features
                         if (totalCount > 0) {
                             progressMonitor.worked(pageImages.size());
                         }
