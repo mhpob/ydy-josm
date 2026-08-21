@@ -120,24 +120,47 @@ public class YesterdaysPlugin extends Plugin {
                 }
             });
 
-            JMenu dataMenu = MainApplication.getMenu().dataMenu;
-            if (dataMenu != null) {
+            JMenu fileMenu = MainApplication.getMenu().fileMenu;
+            if (fileMenu != null) {
                 boolean alreadyAdded = false;
-                for (int i = 0; i < dataMenu.getItemCount(); i++) {
-                    JMenuItem item = dataMenu.getItem(i);
-                    if (item != null && "Load Yesterdays Photos".equals(item.getText())) {
-                        alreadyAdded = true;
-                        break;
+                int notesIndex = -1;
+                int downloadDataIndex = -1;
+
+                for (int i = 0; i < fileMenu.getItemCount(); i++) {
+                    JMenuItem item = fileMenu.getItem(i);
+                    if (item != null) {
+                        String itemText = item.getText() != null ? item.getText().toLowerCase() : "";
+                        
+                        if ("load yesterdays photos".equals(itemText)) {
+                            alreadyAdded = true;
+                            break;
+                        }
+                        
+                        if (itemText.contains("download notes") || itemText.contains("notes in current view")) {
+                            notesIndex = i;
+                        } else if (item.getAction() == MainApplication.getMenu().download
+                                || itemText.startsWith("download data") || itemText.startsWith("download")) {
+                            downloadDataIndex = i;
+                        }
                     }
                 }
 
                 if (!alreadyAdded) {
-                    dataMenu.add(new AbstractAction("Load Yesterdays Photos") {
+                    JMenuItem loadMenuItem = new JMenuItem(new AbstractAction("Load Yesterdays Photos") {
                         @Override
                         public void actionPerformed(ActionEvent e) {
                             triggerLoadPhotos();
                         }
                     });
+
+                    // Prefer inserting after "Download notes", falling back to after "Download data"
+                    int targetIndex = (notesIndex != -1) ? notesIndex : downloadDataIndex;
+
+                    if (targetIndex != -1) {
+                        fileMenu.insert(loadMenuItem, targetIndex + 1);
+                    } else {
+                        fileMenu.add(loadMenuItem);
+                    }
                 }
             }
         }
