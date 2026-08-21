@@ -153,7 +153,6 @@ public class YesterdaysPlugin extends Plugin {
                         }
                     });
 
-                    // Prefer inserting after "Download notes", falling back to after "Download data"
                     int targetIndex = (notesIndex != -1) ? notesIndex : downloadDataIndex;
 
                     if (targetIndex != -1) {
@@ -362,11 +361,35 @@ public class YesterdaysPlugin extends Plugin {
                         image.setDateDisplay("Unknown");
                     }
 
-                    Matcher licenseMatcher = Pattern.compile("\"license\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);
-                    if (licenseMatcher.find() && licenseMatcher.group(1) != null) {
-                        image.setLicense(licenseMatcher.group(1));
+                    // Parse nested license JSON object
+                    Matcher licObjMatcher = Pattern.compile("\"license\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(json);
+                    if (licObjMatcher.find()) {
+                        String licBlock = licObjMatcher.group(1);
+                        Matcher dispMatcher = Pattern.compile("\"display_name\"\\s*:\\s*\"([^\"]*)\"").matcher(licBlock);
+                        Matcher nameMatcher = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]*)\"").matcher(licBlock);
+                        
+                        if (dispMatcher.find() && !dispMatcher.group(1).trim().isEmpty()) {
+                            image.setLicense(dispMatcher.group(1).trim());
+                        } else if (nameMatcher.find() && !nameMatcher.group(1).trim().isEmpty()) {
+                            image.setLicense(nameMatcher.group(1).trim());
+                        } else {
+                            image.setLicense("None specified");
+                        }
+
+                        if (nameMatcher.find(0) && !nameMatcher.group(1).trim().isEmpty()) {
+                            image.setLicenseName(nameMatcher.group(1).trim());
+                        }
                     } else {
                         image.setLicense("None specified");
+                    }
+
+                    // Parse collection source_name
+                    Matcher collMatcher = Pattern.compile("\"collection\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(json);
+                    if (collMatcher.find()) {
+                        Matcher srcNameMatcher = Pattern.compile("\"source_name\"\\s*:\\s*\"([^\"]*)\"").matcher(collMatcher.group(1));
+                        if (srcNameMatcher.find()) {
+                            image.setSourceName(srcNameMatcher.group(1).trim());
+                        }
                     }
 
                     Matcher descMatcher = Pattern.compile("\"description\"\\s*:\\s*(?:\"([^\"]*)\"|null)").matcher(json);

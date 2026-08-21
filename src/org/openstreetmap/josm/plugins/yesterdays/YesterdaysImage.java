@@ -15,6 +15,8 @@ public class YesterdaysImage {
 
     private String dateDisplay;
     private String license;
+    private String licenseName;
+    private String sourceName;
     private String description;
     private String originalUrl;
 
@@ -49,6 +51,12 @@ public class YesterdaysImage {
 
     public String getLicense() { return license; }
     public void setLicense(String license) { this.license = license; }
+
+    public String getLicenseName() { return licenseName; }
+    public void setLicenseName(String licenseName) { this.licenseName = licenseName; }
+
+    public String getSourceName() { return sourceName; }
+    public void setSourceName(String sourceName) { this.sourceName = sourceName; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
