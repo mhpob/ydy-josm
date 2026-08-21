@@ -9,10 +9,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Path2D;
+import java.util.ArrayList;
 import java.util.List;
 
 public class YesterdaysLayer extends Layer {
-    private final List<YesterdaysImage> images;
+    private List<YesterdaysImage> images;
     private final boolean isFromAboveLayer;
 
     public YesterdaysLayer(List<YesterdaysImage> images) {
@@ -21,8 +22,17 @@ public class YesterdaysLayer extends Layer {
 
     public YesterdaysLayer(List<YesterdaysImage> images, boolean isFromAboveLayer) {
         super(isFromAboveLayer ? "Yesterdays From-Above Photos" : "Yesterdays Historical Photos");
-        this.images = images;
+        this.images = (images != null) ? images : new ArrayList<>();
         this.isFromAboveLayer = isFromAboveLayer;
+    }
+
+    public synchronized void setImages(List<YesterdaysImage> newImages) {
+        this.images = (newImages != null) ? newImages : new ArrayList<>();
+        invalidate();
+    }
+
+    public synchronized List<YesterdaysImage> getImages() {
+        return images;
     }
 
     public boolean isFromAboveLayer() {
@@ -34,7 +44,6 @@ public class YesterdaysLayer extends Layer {
             return null;
         }
 
-        // Pass 1: Prioritize point georeferences (hit-test radius = 20px)
         for (YesterdaysImage img : images) {
             if (!img.isFromAbove() && img.getCoordinates() != null) {
                 Point screenPt = mv.getPoint(img.getCoordinates());
@@ -44,7 +53,6 @@ public class YesterdaysLayer extends Layer {
             }
         }
 
-        // Pass 2: Fall back to polygon footprint selection
         for (YesterdaysImage img : images) {
             if (img.isFromAbove() && img.getPolygon() != null && !img.getPolygon().isEmpty()) {
                 Path2D path = new Path2D.Double();

@@ -67,18 +67,22 @@ public class YesterdaysPlugin extends Plugin {
         }
     }
 
+    
     @Override
     public void mapFrameInitialized(MapFrame oldFrame, MapFrame newFrame) {
         super.mapFrameInitialized(oldFrame, newFrame);
-
+    
         if (newFrame == null) {
             YesterdaysInfoPanel.resetInstance();
             return;
         }
-
+    
         if (newFrame.mapView != null) {
-            YesterdaysInfoPanel infoPanel = YesterdaysInfoPanel.getInstance();
-            newFrame.addToggleDialog(infoPanel);
+            // Pass active MapFrame into bridge
+            TimeFilterBridge.initialize(newFrame);
+
+        YesterdaysInfoPanel infoPanel = YesterdaysInfoPanel.getInstance();
+        newFrame.addToggleDialog(infoPanel);
 
             newFrame.mapView.addMouseListener(new MouseAdapter() {
                 @Override
@@ -179,19 +183,26 @@ public class YesterdaysPlugin extends Plugin {
         MapView mv = MainApplication.getMap().mapView;
         Bounds bounds = mv.getLatLonBounds(mv.getBounds());
         
-        loadImagesForBoundsAsync(bounds, null, true, true);
+        // Fetch active time filters (if OHM filter is currently active)
+        Map<String, String> filters = TimeFilterBridge.getActiveFilters();
+        
+        loadImagesForBoundsAsync(bounds, filters, true, true, false);
     }
 
     public static void loadImagesForBoundsAsync(Bounds bounds, Map<String, String> filters, boolean fetchPoints, boolean fetchFromAbove) {
+        loadImagesForBoundsAsync(bounds, filters, fetchPoints, fetchFromAbove, false);
+    }
+
+    public static void loadImagesForBoundsAsync(Bounds bounds, Map<String, String> filters, boolean fetchPoints, boolean fetchFromAbove, boolean replaceExisting) {
         if (fetchFromAbove) {
-            fetchAndAddLayer(bounds, filters, "/api/v2/from-above-georeferences/", true);
+            fetchAndAddLayer(bounds, filters, "/api/v2/from-above-georeferences/", true, replaceExisting);
         }
         if (fetchPoints) {
-            fetchAndAddLayer(bounds, filters, "/api/v2/georeferences/", false);
+            fetchAndAddLayer(bounds, filters, "/api/v2/georeferences/", false, replaceExisting);
         }
     }
 
-    private static void fetchAndAddLayer(Bounds bounds, Map<String, String> filters, String endpointPath, boolean isFromAbove) {
+    private static void fetchAndAddLayer(Bounds bounds, Map<String, String> filters, String endpointPath, boolean isFromAbove, boolean replaceExisting) {
         String taskName = isFromAbove ? "Loading Yesterdays From-Above Photos" : "Loading Yesterdays Point Photos";
         
         PleaseWaitRunnable task = new PleaseWaitRunnable(taskName) {
@@ -300,17 +311,36 @@ public class YesterdaysPlugin extends Plugin {
 
             @Override
             protected void finish() {
+                YesterdaysLayer targetLayer = null;
+
+                if (replaceExisting) {
+                    for (YesterdaysLayer existing : MainApplication.getLayerManager().getLayersOfType(YesterdaysLayer.class)) {
+                        if (existing.isFromAboveLayer() == isFromAbove) {
+                            targetLayer = existing;
+                            break;
+                        }
+                    }
+                }
+
                 if (success) {
-                    YesterdaysLayer layer = new YesterdaysLayer(allImages, isFromAbove);
-                    MainApplication.getLayerManager().addLayer(layer);
-                    System.out.println("Successfully added layer with " + allImages.size() + " images.");
-                } else if (!progressMonitor.isCanceled()) {
-                    JOptionPane.showMessageDialog(
-                        MainApplication.getMainFrame(),
-                        "No photos found for " + (isFromAbove ? "from-above" : "point") + " georeferences in this area.",
-                        "Yesterdays",
-                        JOptionPane.INFORMATION_MESSAGE
-                    );
+                    if (targetLayer != null) {
+                        targetLayer.setImages(allImages);
+                    } else {
+                        YesterdaysLayer layer = new YesterdaysLayer(allImages, isFromAbove);
+                        MainApplication.getLayerManager().addLayer(layer);
+                    }
+                    System.out.println("Successfully updated layer with " + allImages.size() + " images.");
+                } else {
+                    if (targetLayer != null) {
+                        targetLayer.setImages(new ArrayList<>()); // Clear layer if no results match
+                    } else if (!progressMonitor.isCanceled()) {
+                        JOptionPane.showMessageDialog(
+                            MainApplication.getMainFrame(),
+                            "No photos found for " + (isFromAbove ? "from-above" : "point") + " georeferences in this area.",
+                            "Yesterdays",
+                            JOptionPane.INFORMATION_MESSAGE
+                        );
+                    }
                 }
             }
 
@@ -361,7 +391,6 @@ public class YesterdaysPlugin extends Plugin {
                         image.setDateDisplay("Unknown");
                     }
 
-                    // Parse nested license JSON object
                     Matcher licObjMatcher = Pattern.compile("\"license\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(json);
                     if (licObjMatcher.find()) {
                         String licBlock = licObjMatcher.group(1);
@@ -383,7 +412,6 @@ public class YesterdaysPlugin extends Plugin {
                         image.setLicense("None specified");
                     }
 
-                    // Parse collection source_name
                     Matcher collMatcher = Pattern.compile("\"collection\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(json);
                     if (collMatcher.find()) {
                         Matcher srcNameMatcher = Pattern.compile("\"source_name\"\\s*:\\s*\"([^\"]*)\"").matcher(collMatcher.group(1));

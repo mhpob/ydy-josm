@@ -69,12 +69,17 @@ public class YesterdaysDownloadSource implements DownloadSource {
         if (bounds != null && lastCreatedPanel != null) {
             boolean fetchPoints = lastCreatedPanel.isPointsSelected();
             boolean fetchFromAbove = lastCreatedPanel.isFromAboveSelected();
-            Map<String, String> filters = lastCreatedPanel.getFilterMap();
+            
+            // Start with active OHM Time Filter parameters if enabled
+            Map<String, String> filters = TimeFilterBridge.getActiveFilters();
+            
+            // Merge manual download panel entries (overriding or supplementing if specified)
+            filters.putAll(lastCreatedPanel.getFilterMap());
 
             YesterdaysPlugin.loadImagesForBoundsAsync(bounds, filters, fetchPoints, fetchFromAbove);
         }
     }
-
+    
     private static class YesterdaysPanel extends AbstractDownloadSourcePanel<YesterdaysDownloadSource> {
         private final YesterdaysDownloadSource source;
         private final JCheckBox pointsCheckBox;
