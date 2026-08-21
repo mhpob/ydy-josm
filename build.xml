@@ -3,7 +3,7 @@
     <property name="plugin.name" value="yesterdays" />
     <property name="plugin.class" value="org.openstreetmap.josm.plugins.yesterdays.YesterdaysPlugin" />
     <property name="plugin.description" value="Displays historical photos from the Yesterdays API." />
-    <property name="plugin.version" value="0.1.0.999-9" />
+    <property name="plugin.version" value="0.1.0.999-10" />
     <property name="plugin.author" value="Yesterdays Team" />
     
     <!-- Paths -->
